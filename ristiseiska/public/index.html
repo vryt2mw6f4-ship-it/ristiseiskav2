@@ -49,6 +49,7 @@
         </select><br><br>
         <button onclick="joinGame()">Liity / Luo huone</button>
     </div>
+
     <!-- ODOTUSHUONE -->
     <div id="waiting-room" class="setup hidden">
         <h3>Odotetaan pelaajia...</h3>
@@ -193,52 +194,3 @@
             } else {
                 document.getElementById('turn-info').innerHTML = data.hasBonusTurn ? 
                     `Pelaajan <b>${turnUser}</b> vapaaehtoinen jatkovuoro...` : 
-                    `Vuorossa: <b>${turnUser}</b>`;
-                drawBtn.disabled = true;
-                endBonusBtn.classList.add('hidden');
-            }
-
-            document.getElementById('opponents-status').innerHTML = data.playersData.map(p => 
-                `<div><b>${p.username}:</b> ${p.cardCount} kpl</div>`
-            ).join('');
-
-            const cardsDiv = document.getElementById('my-cards');
-            cardsDiv.innerHTML = "";
-            data.myCards.forEach(card => {
-                const isPlayable = data.validMoves.some(m => m.suit === card.suit && m.value === card.value);
-                const cardEl = document.createElement('div');
-                cardEl.className = `card ${isPlayable ? 'playable' : ''} ${(card.suit === 'D' || card.suit === 'H') ? 'red' : ''}`;
-                
-                cardEl.innerText = `${suitSymbols[card.suit]}${formatCardValue(card.value)}`;
-                
-                if (isMyTurn && isPlayable) {
-                    cardEl.onclick = () => {
-                        socket.emit('playCard', { roomCode: currentRoom, card });
-                    };
-                }
-                cardsDiv.appendChild(cardEl);
-            });
-        });
-
-        function drawCard() {
-            socket.emit('drawCard', { roomCode: currentRoom });
-        }
-
-        function endBonusTurn() {
-            socket.emit('endBonusTurn', { roomCode: currentRoom });
-        }
-
-        socket.on('logMessage', (msg) => {
-            const log = document.getElementById('log');
-            log.innerHTML += `<div>${msg}</div>`;
-            log.scrollTop = log.scrollHeight;
-        });
-
-        socket.on('gameOver', (msg) => {
-            alert("Peli päättyi! Kiitos pelistä.");
-        });
-
-        socket.on('errorMsg', (msg) => alert(msg));
-    </script>
-</body>
-</html>

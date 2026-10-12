@@ -224,7 +224,7 @@ function stealCardLogic(room) {
     if (room.players[prevIndex].cards.length > 0) {
         let randIdx = Math.floor(Math.random() * room.players[prevIndex].cards.length);
         let stolenCards = room.players[prevIndex].cards.splice(randIdx, 1);
-        let stolenCard = stolenCards[0]; // Korjattu: napataan korttiolento ulos taulukosta turvallisesti
+        let stolenCard = stolenCards[0]; // KORJATTU: Otetaan korttiolento ulos taulukosta turvallisesti
         room.players[currentIndex].cards.push(stolenCard);
         io.to(room.code).emit('logMessage', `🃏 ${room.players[currentIndex].username} ei voinut pelata ja ryösti kortin pelaajalta ${room.players[prevIndex].username}`);
     } else {
@@ -257,7 +257,7 @@ function handleBotTurn(roomCode) {
     let validMoves = getValidMoves(bot.cards, room.table);
 
     if (validMoves.length > 0) {
-        let cardToPlay = validMoves[0];
+        let cardToPlay = validMoves[0]; // KORJATTU: Otetaan ensisijainen kortti
         bot.cards = bot.cards.filter(c => !(c.suit === cardToPlay.suit && c.value === cardToPlay.value));
         room.table[cardToPlay.suit].push(cardToPlay.value);
         room.table[cardToPlay.suit].sort((a,b) => a-b);
@@ -294,4 +294,3 @@ function handleBotBonusTurn(roomCode) {
 function checkWinAndNextTurn(roomCode) {
     let room = rooms[roomCode];
     let activePlayer = room.players[room.currentTurn];
-

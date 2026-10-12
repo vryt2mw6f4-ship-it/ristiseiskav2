@@ -28,6 +28,7 @@ function createDeck() {
 io.on('connection', (socket) => {
     socket.on('joinRoom', ({ roomCode, username, totalPlayers }) => {
         socket.join(roomCode);
+        
         if (!rooms[roomCode]) {
             rooms[roomCode] = {
                 code: roomCode,
@@ -38,13 +39,16 @@ io.on('connection', (socket) => {
                 gameStarted: false,
                 maxPlayers: parseInt(totalPlayers) || 4,
                 hasBonusTurn: false,
-                readyForNextGame: new Set()
+                readyForNextGame: []
             };
         }
+
         let room = rooms[roomCode];
         if (room.gameStarted) return;
+
         room.players.push({ id: socket.id, username, cards: [], isBot: false });
         io.to(roomCode).emit('roomData', { players: room.players, maxPlayers: room.maxPlayers });
+
         if (room.players.length === room.maxPlayers) {
             startGame(roomCode);
         }
@@ -64,6 +68,7 @@ io.on('connection', (socket) => {
             room.hasBonusTurn = true;
             io.to(roomCode).emit('logMessage', `🃏 ${activePlayer.username} pelasi sulkukortin (${card.value === 1 ? 'A' : 'K'}) ja sai vapaaehtoisen jatkovuoron!`);
             broadcastState(roomCode);
+            
             if (activePlayer.isBot) {
                 setTimeout(() => handleBotBonusTurn(roomCode), 1200);
             }
@@ -78,6 +83,7 @@ io.on('connection', (socket) => {
         if (!room || !room.hasBonusTurn) return;
         let activePlayer = room.players[room.currentTurn];
         if (activePlayer.id !== socket.id) return;
+
         room.hasBonusTurn = false;
         io.to(roomCode).emit('logMessage', `${activePlayer.username} lopetti jatkovuoronsa.`);
         checkWinAndNextTurn(roomCode);
@@ -88,17 +94,23 @@ io.on('connection', (socket) => {
         if (!room || room.hasBonusTurn) return;
         let activePlayer = room.players[room.currentTurn];
         if (activePlayer.id !== socket.id) return;
+
         stealCardLogic(room);
     });
 
     socket.on('requestNewGame', ({ roomCode }) => {
         let room = rooms[roomCode];
         if (!room) return;
-        room.readyForNextGame.add(socket.id);
+
+        if (!room.readyForNextGame.includes(socket.id)) {
+            room.readyForNextGame.push(socket.id);
+        }
+        
         let humanPlayers = room.players.filter(p => !p.isBot);
-        io.to(roomCode).emit('logMessage', `🔄 Pelaaja on valmis uuteen peliin (${room.readyForNextGame.size}/${humanPlayers.length})`);
-        if (room.readyForNextGame.size === humanPlayers.length) {
-            room.readyForNextGame.clear();
+        io.to(roomCode).emit('logMessage', `🔄 Pelaaja on valmis uuteen peliin (${room.readyForNextGame.length}/${humanPlayers.length})`);
+
+        if (room.readyForNextGame.length === humanPlayers.length) {
+            room.readyForNextGame = [];
             restartGame(roomCode);
         }
     });
@@ -107,23 +119,27 @@ io.on('connection', (socket) => {
 function startGame(roomCode) {
     let room = rooms[roomCode];
     room.gameStarted = true;
+
     let botCount = 1;
     while (room.players.length < 4) {
         room.players.push({ id: 'bot_' + botCount, username: `Botti ${botCount}`, cards: [], isBot: true });
         botCount++;
     }
+
     let deck = createDeck();
     let playerIndex = 0;
     while (deck.length > 0) {
         room.players[playerIndex % room.players.length].cards.push(deck.pop());
         playerIndex++;
     }
+
     for (let i = 0; i < room.players.length; i++) {
         if (room.players[i].cards.some(c => c.suit === 'C' && c.value === 7)) {
             room.currentTurn = i;
             break;
         }
     }
+
     broadcastState(roomCode);
     if (room.players[room.currentTurn].isBot) {
         setTimeout(() => handleBotTurn(roomCode), 1200);
@@ -133,24 +149,30 @@ function startGame(roomCode) {
 function restartGame(roomCode) {
     let room = rooms[roomCode];
     if (!room) return;
+
     room.table = { C: [], D: [], H: [], S: [] };
     room.hasBonusTurn = false;
+    
     room.players.forEach(p => p.cards = []);
+
     let deck = createDeck();
     let playerIndex = 0;
     while (deck.length > 0) {
         room.players[playerIndex % room.players.length].cards.push(deck.pop());
         playerIndex++;
     }
+
     for (let i = 0; i < room.players.length; i++) {
         if (room.players[i].cards.some(c => c.suit === 'C' && c.value === 7)) {
             room.currentTurn = i;
             break;
         }
     }
+
     io.to(roomCode).emit('logMessage', `✨ UUSI JAKO ALKOI! Peli nollattu.`);
     io.to(roomCode).emit('resetUI');
     broadcastState(roomCode);
+
     if (room.players[room.currentTurn].isBot) {
         setTimeout(() => handleBotTurn(roomCode), 1200);
     }
@@ -159,9 +181,11 @@ function restartGame(roomCode) {
 function getValidMoves(cards, table) {
     let valid = [];
     let hasClub7 = cards.some(c => c.suit === 'C' && c.value === 7);
+    
     if (hasClub7 && table.C.length === 0) {
         return cards.filter(c => c.suit === 'C' && c.value === 7);
     }
+
     for (let card of cards) {
         let suitPile = table[card.suit];
         if (card.value === 7) {
@@ -169,6 +193,7 @@ function getValidMoves(cards, table) {
         } else if (suitPile.includes(7)) {
             let hasSix = suitPile.includes(6);
             let hasEight = suitPile.includes(8);
+
             if (card.value === 6) {
                 valid.push(card);
             } else if (card.value === 8 && hasSix) {
@@ -178,6 +203,7 @@ function getValidMoves(cards, table) {
                 let highCards = suitPile.filter(v => v >= 7);
                 let minVal = Math.min(...lowCards);
                 let maxVal = Math.max(...highCards);
+
                 if (card.value === minVal - 1 || card.value === maxVal + 1) {
                     valid.push(card);
                 }
@@ -190,24 +216,33 @@ function getValidMoves(cards, table) {
 function stealCardLogic(room) {
     let currentIndex = room.currentTurn;
     let prevIndex = (currentIndex - 1 + room.players.length) % room.players.length;
+    
     while (room.players[prevIndex].cards.length === 0 && prevIndex !== currentIndex) {
         prevIndex = (prevIndex - 1 + room.players.length) % room.players.length;
     }
+
     if (room.players[prevIndex].cards.length > 0) {
         let randIdx = Math.floor(Math.random() * room.players[prevIndex].cards.length);
         let stolenCards = room.players[prevIndex].cards.splice(randIdx, 1);
-        room.players[currentIndex].cards.push(stolenCards[0]);
-        io.to(room.code).emit('logMessage', `🃏 ${room.players[currentIndex].username} ryösti kortin pelaajalta ${room.players[prevIndex].username}`);
+        let stolenCard = stolenCards[0]; // Korjattu: napataan korttiolento ulos taulukosta turvallisesti
+        room.players[currentIndex].cards.push(stolenCard);
+        io.to(room.code).emit('logMessage', `🃏 ${room.players[currentIndex].username} ei voinut pelata ja ryösti kortin pelaajalta ${room.players[prevIndex].username}`);
+    } else {
+        io.to(room.code).emit('logMessage', `🃏 ${room.players[currentIndex].username} ei voinut pelata, mutta kenelläkään ei ole kortteja ryöstettäväksi!`);
     }
+
     let nextIndex = currentIndex;
     let attempts = 0;
     do {
         nextIndex = (nextIndex + 1) % room.players.length;
         attempts++;
     } while (room.players[nextIndex].cards.length === 0 && attempts < room.players.length);
+
     room.currentTurn = nextIndex;
     room.hasBonusTurn = false;
+
     broadcastState(room.code);
+
     if (room.players[room.currentTurn].isBot) {
         setTimeout(() => handleBotTurn(room.code), 1200);
     }
@@ -218,13 +253,16 @@ function handleBotTurn(roomCode) {
     if (!room) return;
     let bot = room.players[room.currentTurn];
     if (!bot || !bot.isBot) return;
+
     let validMoves = getValidMoves(bot.cards, room.table);
+
     if (validMoves.length > 0) {
         let cardToPlay = validMoves[0];
         bot.cards = bot.cards.filter(c => !(c.suit === cardToPlay.suit && c.value === cardToPlay.value));
         room.table[cardToPlay.suit].push(cardToPlay.value);
         room.table[cardToPlay.suit].sort((a,b) => a-b);
         io.to(roomCode).emit('logMessage', `${bot.username} pelasi: ${cardToPlay.suit}-${cardToPlay.value}`);
+
         if ((cardToPlay.value === 1 || cardToPlay.value === 13) && bot.cards.length > 0) {
             room.hasBonusTurn = true;
             broadcastState(roomCode);
@@ -242,6 +280,7 @@ function handleBotBonusTurn(roomCode) {
     let room = rooms[roomCode];
     if (!room) return;
     let bot = room.players[room.currentTurn];
+    
     let validMoves = getValidMoves(bot.cards, room.table);
     if (validMoves.length > 0) {
         handleBotTurn(roomCode);
@@ -255,12 +294,4 @@ function handleBotBonusTurn(roomCode) {
 function checkWinAndNextTurn(roomCode) {
     let room = rooms[roomCode];
     let activePlayer = room.players[room.currentTurn];
-    if (activePlayer.cards.length === 0) {
-        io.to(roomCode).emit('logMessage', `🎉 ${activePlayer.username} pääsi eroon kaikista korteistaan!`);
-    }
-    let attempts = 0;
-    do {
-        room.currentTurn = (room.currentTurn + 1) % room.players.length;
-        attempts++;
-    } while (room.players[room.currentTurn].cards.length === 0 && attempts < room.players.length);
-    broadcastState(roomCode);
+

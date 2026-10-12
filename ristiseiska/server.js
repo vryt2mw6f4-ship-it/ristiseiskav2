@@ -42,7 +42,8 @@ io.on('connection', (socket) => {
                 currentTurn: 0,
                 gameStarted: false,
                 maxPlayers: parseInt(totalPlayers) || 4,
-                hasBonusTurn: false
+                hasBonusTurn: false,
+                readyForNextGame: new Set()
             };
         }
 
@@ -100,6 +101,21 @@ io.on('connection', (socket) => {
 
         stealCardLogic(room);
     });
+
+    socket.on('requestNewGame', ({ roomCode }) => {
+        let room = rooms[roomCode];
+        if (!room) return;
+
+        room.readyForNextGame.add(socket.id);
+        
+        let humanPlayers = room.players.filter(p => !p.isBot);
+        io.to(roomCode).emit('logMessage', `🔄 Pelaaja on valmis uuteen peliin (${room.readyForNextGame.size}/${humanPlayers.length})`);
+
+        if (room.readyForNextGame.size === humanPlayers.length) {
+            room.readyForNextGame.clear();
+            restartGame(roomCode);
+        }
+    });
 });
 
 function startGame(roomCode) {
@@ -127,6 +143,38 @@ function startGame(roomCode) {
     }
 
     broadcastState(roomCode);
+    if (room.players[room.currentTurn].isBot) {
+        setTimeout(() => handleBotTurn(roomCode), 1200);
+    }
+}
+
+function restartGame(roomCode) {
+    let room = rooms[roomCode];
+    if (!room) return;
+
+    room.table = { C: [], D: [], H: [], S: [] };
+    room.hasBonusTurn = false;
+    
+    room.players.forEach(p => p.cards = []);
+
+    let deck = createDeck();
+    let playerIndex = 0;
+    while (deck.length > 0) {
+        room.players[playerIndex % room.players.length].cards.push(deck.pop());
+        playerIndex++;
+    }
+
+    for (let i = 0; i < room.players.length; i++) {
+        if (room.players[i].cards.some(c => c.suit === 'C' && c.value === 7)) {
+            room.currentTurn = i;
+            break;
+        }
+    }
+
+    io.to(roomCode).emit('logMessage', `✨ UUSI JAKO ALKOI! Peli nollattu.`);
+    io.to(roomCode).emit('resetUI');
+    broadcastState(roomCode);
+
     if (room.players[room.currentTurn].isBot) {
         setTimeout(() => handleBotTurn(roomCode), 1200);
     }
@@ -250,45 +298,82 @@ function checkWinAndNextTurn(roomCode) {
     let activePlayer = room.players[room.currentTurn];
 
     if (activePlayer.cards.length === 0) {
-        io.to(roomCode).emit('logMessage', `🎉 ${activePlayer.username} pääsi eroon kaikista korteistaan!`);
+socket.on('roomData', ({ players, maxPlayers }) => {
+    const list = document.getElementById('player-list');
+    list.innerHTML = players.map(p => `<div>👤 ${p.username} liittynyt</div>`).join('');
+    list.innerHTML += `<br><b>Tilanne: ${players.length} / ${maxPlayers} pelaajaa paikalla.</b>`;
+});
+socket.on('gameState', (data) => {
+    document.getElementById('waiting-room').classList.add('hidden');
+    document.getElementById('game-area').classList.remove('hidden');
+    for (let suit in data.table) {
+        const gridContainer = document.getElementById(`grid-${suit}`);
+        gridContainer.innerHTML = "";
+        let suitPile = data.table[suit]; let isRed = (suit === 'D' || suit === 'H');
+        let hasSeven = suitPile.includes(7); let lowCards = suitPile.filter(v => v < 7); let highCards = suitPile.filter(v => v > 7);
+        let topLow = lowCards.length > 0 ? Math.min(...lowCards) : null; let topHigh = highCards.length > 0 ? Math.max(...highCards) : null;
+        let lowEl = document.createElement('div');
+        if (topLow !== null) { lowEl.className = `table-card ${isRed ? 'red' : ''}`; lowEl.innerText = formatCardValue(topLow); }
+        else { lowEl.className = "table-card empty"; lowEl.innerText = "-"; }
+        gridContainer.appendChild(lowEl);
+        let sevenEl = document.createElement('div');
+        if (hasSeven) { sevenEl.className = `table-card ${isRed ? 'red' : ''}`; sevenEl.innerText = "7"; }
+        else { sevenEl.className = "table-card empty"; sevenEl.innerText = "-"; }
+        gridContainer.appendChild(sevenEl);
+        let highEl = document.createElement('div');
+        if (topHigh !== null) { highEl.className = `table-card ${isRed ? 'red' : ''}`; highEl.innerText = formatCardValue(topHigh); }
+        else { highEl.className = "table-card empty"; highEl.innerText = "-"; }
+        gridContainer.appendChild(highEl);
     }
-
-    let attempts = 0;
-    do {
-        room.currentTurn = (room.currentTurn + 1) % room.players.length;
-        attempts++;
-    } while (room.players[room.currentTurn].cards.length === 0 && attempts < room.players.length);
-
-    broadcastState(roomCode);
-
-    let activePlayersLeft = room.players.filter(p => p.cards.length > 0).length;
-    if (activePlayersLeft <= 1) {
-        io.to(roomCode).emit('gameOver', 'Peli päättyi!');
-        return;
-    }
-
-    if (room.players[room.currentTurn].isBot) {
-        setTimeout(() => handleBotTurn(roomCode), 1200);
-    }
-}
-
-function broadcastState(roomCode) {
-    let room = rooms[roomCode];
-    room.players.forEach(p => {
-        if (!p.isBot) {
-            let validMoves = getValidMoves(p.cards, room.table);
-            io.to(p.id).emit('gameState', {
-                table: room.table,
-                currentTurn: room.currentTurn,
-                playersData: room.players.map(pl => ({ username: pl.username, cardCount: pl.cards.length })),
-                myCards: p.cards,
-                canPlay: validMoves.length > 0,
-                validMoves: validMoves,
-                hasBonusTurn: room.hasBonusTurn
-            });
+    const myUsername = document.getElementById('username').value;
+    const turnUser = data.playersData[data.currentTurn].username;
+    const isMyTurn = turnUser === myUsername;
+    const drawBtn = document.getElementById('draw-btn'); const endBonusBtn = document.getElementById('end-bonus-btn');
+    if (isMyTurn) {
+        if (data.hasBonusTurn) {
+            document.getElementById('turn-info').innerHTML = `<span class="turn-highlight">⚡️ JATKOVUORO! Pelaa kortti tai lopeta.</span>`;
+            drawBtn.disabled = true; endBonusBtn.classList.remove('hidden');
+        } else {
+            document.getElementById('turn-info').innerHTML = `<span class="turn-highlight">⭐️ SINUN VUOROSI!</span>`;
+            drawBtn.disabled = data.canPlay; endBonusBtn.classList.add('hidden');
         }
+    } else {
+        document.getElementById('turn-info').innerHTML = data.hasBonusTurn ? `Pelaajan <b>${turnUser}</b> vapaaehtoinen jatkovuoro...` : `Vuorossa: <b>${turnUser}</b>`;
+        drawBtn.disabled = true; endBonusBtn.classList.add('hidden');
+    }
+    document.getElementById('opponents-status').innerHTML = data.playersData.map(p => `<div><b>${p.username}:</b> ${p.cardCount} kpl</div>`).join('');
+    const cardsDiv = document.getElementById('my-cards'); cardsDiv.innerHTML = "";
+    data.myCards.forEach(card => {
+        const isPlayable = data.validMoves.some(m => m.suit === card.suit && m.value === card.value);
+        const cardEl = document.createElement('div');
+        cardEl.className = `card ${isPlayable ? 'playable' : ''} ${(card.suit === 'D' || card.suit === 'H') ? 'red' : ''}`;
+        cardEl.innerText = `${suitSymbols[card.suit]}${formatCardValue(card.value)}`;
+        if (isMyTurn && isPlayable) {
+            cardEl.onclick = () => { socket.emit('playCard', { roomCode: currentRoom, card }); };
+        }
+        cardsDiv.appendChild(cardEl);
     });
+});
+function drawCard() { socket.emit('drawCard', { roomCode: currentRoom }); }
+function endBonusTurn() { socket.emit('endBonusTurn', { roomCode: currentRoom }); }
+function requestNewGame() {
+    document.getElementById('new-game-btn').disabled = true;
+    document.getElementById('new-game-btn').innerText = "Odotetaan kaveria... ⏳";
+    socket.emit('requestNewGame', { roomCode: currentRoom });
 }
-
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Palvelin käynnissä portissa ${PORT}`));
+socket.on('gameOver', () => {
+    document.getElementById('new-game-btn').classList.remove('hidden');
+    document.getElementById('new-game-btn').disabled = false;
+    document.getElementById('new-game-btn').innerText = "Haluan uuden pelin! 🔄";
+    document.getElementById('turn-info').innerHTML = `🏁 <b>Peli päättyi!</b>`;
+});
+socket.on('resetUI', () => {
+    document.getElementById('new-game-btn').classList.add('hidden');
+});
+socket.on('logMessage', (msg) => {
+    const log = document.getElementById('log'); log.innerHTML += `<div>${msg}</div>`; log.scrollTop = log.scrollHeight;
+});
+socket.on('errorMsg', (msg) => alert(msg));
+</script>
+</body>
+</html>

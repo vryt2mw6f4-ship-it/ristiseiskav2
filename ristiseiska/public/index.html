@@ -1,0 +1,198 @@
+<!DOCTYPE html>
+<html lang="fi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Etä-Ristiseiska</title>
+    <script src="/socket.io/socket.io.js"></script>
+    <style>
+        body { font-family: sans-serif; background: #1a4314; color: white; text-align: center; margin: 0; padding: 10px; }
+        .setup, .game-container { max-width: 600px; margin: auto; background: rgba(0,0,0,0.5); padding: 20px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
+        .hidden { display: none; }
+        .card { display: inline-block; padding: 15px 10px; margin: 5px; background: white; color: black; border-radius: 6px; font-weight: bold; cursor: pointer; min-width: 42px; border: 2px solid #ccc; text-align: center; vertical-align: middle; }
+        .card.playable { border-color: #00ff00; box-shadow: 0 0 12px #00ff00; }
+        .card.red { color: #c0392b; }
+        
+        /* Pöytänäkymän muotoilut päällekkäisille pinoille */
+        .table-grid { display: flex; flex-direction: column; gap: 10px; margin: 20px 0; }
+        .suit-row { display: flex; align-items: center; justify-content: center; background: rgba(255,255,255,0.08); padding: 8px; border-radius: 8px; gap: 15px; }
+        .suit-label { font-size: 24px; width: 40px; font-weight: bold; text-align: center; }
+        .pile-container { display: flex; gap: 10px; align-items: center; }
+        .table-card { display: inline-block; width: 45px; padding: 12px 0; background: #fdfefe; color: black; border-radius: 5px; font-weight: bold; border: 2px solid #34495e; text-align: center; box-shadow: 1px 2px 5px rgba(0,0,0,0.3); }
+        .table-card.empty { background: rgba(255,255,255,0.1); border: 2px dashed rgba(255,255,255,0.3); color: rgba(255,255,255,0.3); box-shadow: none; }
+        
+        button { padding: 10px 20px; font-size: 16px; margin: 5px; cursor: pointer; border-radius: 5px; border: none; background: #e67e22; color: white; font-weight: bold; transition: 0.2s; }
+        button:hover:not(:disabled) { background: #d35400; }
+        button:disabled { background: #7f8c8d; cursor: not-allowed; opacity: 0.6; }
+        #end-bonus-btn { background: #2980b9; }
+        #end-bonus-btn:hover:not(:disabled) { background: #2471a3; }
+        
+        .turn-highlight { background: #f1c40f; color: black; padding: 6px 12px; border-radius: 4px; font-weight: bold; animation: pulse 1.5s infinite; }
+        #log { font-size: 12px; color: #bdc3c7; height: 70px; overflow-y: scroll; margin-top: 15px; background: rgba(0,0,0,0.3); padding: 8px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.1); }
+        @keyframes pulse { 0% { opacity: 0.8; } 50% { opacity: 1; } 100% { opacity: 0.8; } }
+    </style>
+</head>
+<body>
+
+    <h1>♣️♦️ Ristiseiska Verkossa ♥️♠️</h1>
+
+    <!-- ALOITUSVALIKKO -->
+    <div id="setup-room" class="setup">
+        <h3>Luo huone tai liity kaverin huoneeseen</h3>
+        <input type="text" id="username" placeholder="Nimimerkkisi" style="padding:8px; width:80%; max-width:250px;"><br><br>
+        <input type="text" id="room-code" placeholder="Huonekoodi (esim. PELI7)" style="padding:8px; width:80%; max-width:250px;"><br><br>
+        <label>Kuinka monta ihmispelaajaa? </label>
+        <select id="total-players" style="padding:6px;">
+            <option value="1">Yksinpeli (Sinä + 3 Bottia)</option>
+            <option value="2">2 Pelaajaa (+2 Bottia)</option>
+            <option value="3">3 Pelaajaa (+1 Botti)</option>
+            <option value="4" selected>4 Pelaajaa (Koko porukka)</option>
+        </select><br><br>
+        <button onclick="joinGame()">Liity / Luo huone</button>
+    </div>
+
+    <!-- ODOTUSHUONE -->
+    <div id="waiting-room" class="setup hidden">
+        <h3>Odotetaan pelaajia...</h3>
+        <div id="player-list"></div>
+    </div>
+
+    <!-- PELIALUE -->
+    <div id="game-area" class="game-container hidden">
+        <h3 id="turn-info">Ladataan peliä...</h3>
+        <div id="opponents-status" style="margin-bottom:15px; font-size:14px; display:flex; justify-content:space-around; background:rgba(0,0,0,0.2); padding:5px; border-radius:5px;"></div>
+
+        <h4>PÖYTÄ</h4>
+        <div class="table-grid">
+            <!-- RISTI -->
+            <div class="suit-row">
+                <div class="suit-label" style="color:white;">♣</div>
+                <div class="pile-container" id="grid-C"></div>
+            </div>
+            <!-- RUUTU -->
+            <div class="suit-row">
+                <div class="suit-label" style="color:#c0392b;">♦</div>
+                <div class="pile-container" id="grid-D"></div>
+            </div>
+            <!-- HERTTU -->
+            <div class="suit-row">
+                <div class="suit-label" style="color:#c0392b;">♥️</div>
+                <div class="pile-container" id="grid-H"></div>
+            </div>
+            <!-- PATA -->
+            <div class="suit-row">
+                <div class="suit-label" style="color:white;">♠</div>
+                <div class="pile-container" id="grid-S"></div>
+            </div>
+        </div>
+
+        <div style="margin: 15px 0;">
+            <button id="draw-btn" onclick="drawCard()" disabled>Nosta edelliseltä</button>
+            <button id="end-bonus-btn" class="hidden" onclick="endBonusTurn()">Lopeta jatkovuoro</button>
+        </div>
+
+        <h4>OMAT KORTTIASI</h4>
+        <div id="my-cards"></div>
+        <div id="log"></div>
+    </div>
+
+    <script>
+        const socket = io();
+        let currentRoom = "";
+
+        const suitSymbols = { 'C': '♣', 'D': '♦', 'H': '♥️', 'S': '♠' };
+
+        function formatCardValue(v) {
+            if (v === 1) return 'A';
+            if (v === 11) return 'J';
+            if (v === 12) return 'Q';
+            if (v === 13) return 'K';
+            return v;
+        }
+
+        function joinGame() {
+            const username = document.getElementById('username').value.trim();
+            const roomCode = document.getElementById('room-code').value.trim().toUpperCase();
+            const totalPlayers = document.getElementById('total-players').value;
+
+            if(!username || !roomCode) return alert("Täytä nimi ja huonekoodi!");
+
+            currentRoom = roomCode;
+            document.getElementById('setup-room').classList.add('hidden');
+            document.getElementById('waiting-room').classList.remove('hidden');
+
+            socket.emit('joinRoom', { roomCode, username, totalPlayers });
+        }
+
+        socket.on('roomData', ({ players, maxPlayers }) => {
+            const list = document.getElementById('player-list');
+            list.innerHTML = players.map(p => `<div>👤 ${p.username} liittynyt</div>`).join('');
+            list.innerHTML += `<br><b>Tilanne: ${players.length} / ${maxPlayers} pelaajaa paikalla.</b>`;
+        });
+
+        socket.on('gameState', (data) => {
+            document.getElementById('waiting-room').classList.add('hidden');
+            document.getElementById('game-area').classList.remove('hidden');
+
+            // --- PÄIVITETTY PÖYTÄNÄKYMÄ (PINOT PÄÄLLEKKÄIN) ---
+            for (let suit in data.table) {
+                const gridContainer = document.getElementById(`grid-${suit}`);
+                gridContainer.innerHTML = "";
+
+                let suitPile = data.table[suit];
+                let isRed = (suit === 'D' || suit === 'H');
+
+                // Jaetaan pelatut kortit pinoihin
+                let hasSeven = suitPile.includes(7);
+                let lowCards = suitPile.filter(v => v < 7);  // 1-6
+                let highCards = suitPile.filter(v => v > 7); // 8-13
+
+                // Viimeisin pieni kortti (alaspäin meno: pienin luku on pinon päällimmäinen)
+                let topLow = lowCards.length > 0 ? Math.min(...lowCards) : null;
+                // Viimeisin suuri kortti (ylöspäin meno: suurin luku on pinon päällimmäinen)
+                let topHigh = highCards.length > 0 ? Math.max(...highCards) : null;
+
+                // 1. Vasen pino (Pienenevät kortit A - 6)
+                let lowEl = document.createElement('div');
+                if (topLow !== null) {
+                    lowEl.className = `table-card ${isRed ? 'red' : ''}`;
+                    lowEl.innerText = formatCardValue(topLow);
+                } else {
+                    lowEl.className = "table-card empty";
+                    lowEl.innerText = "-";
+                }
+                gridContainer.appendChild(lowEl);
+
+                // 2. Keskipaino (Aina Seiska)
+                let sevenEl = document.createElement('div');
+                if (hasSeven) {
+                    sevenEl.className = `table-card ${isRed ? 'red' : ''}`;
+                    sevenEl.innerText = "7";
+                } else {
+                    sevenEl.className = "table-card empty";
+                    sevenEl.innerText = "-";
+                }
+                gridContainer.appendChild(sevenEl);
+
+                // 3. Oikea pino (Suurenevat kortit 8 - K)
+                let highEl = document.createElement('div');
+                if (topHigh !== null) {
+                    highEl.className = `table-card ${isRed ? 'red' : ''}`;
+                    highEl.innerText = formatCardValue(topHigh);
+                } else {
+                    highEl.className = "table-card empty";
+                    highEl.innerText = "-";
+                }
+                gridContainer.appendChild(highEl);
+            }
+
+            // --- VUOROJEN JA PAINIKKEIDEN HALLINTA ---
+            const myUsername = document.getElementById('username').value;
+            const turnUser = data.playersData[data.currentTurn].username;
+            const isMyTurn = turnUser === myUsername;
+            
+            const drawBtn = document.getElementById('draw-btn');
+            const endBonusBtn = document.getElementById('end-bonus-btn');
+
+            if (isMyTurn) {
+                if (data.hasBonusTurn) {

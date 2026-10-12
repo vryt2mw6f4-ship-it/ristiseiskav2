@@ -23,6 +23,8 @@
         button:disabled { background: #7f8c8d; cursor: not-allowed; opacity: 0.6; }
         #end-bonus-btn { background: #2980b9; }
         #end-bonus-btn:hover:not(:disabled) { background: #2471a3; }
+        #new-game-btn { background: #2ecc71; font-size: 18px; padding: 12px 25px; box-shadow: 0 0 15px #2ecc71; }
+        #new-game-btn:hover:not(:disabled) { background: #27ae60; }
         .turn-highlight { background: #f1c40f; color: black; padding: 6px 12px; border-radius: 4px; font-weight: bold; animation: pulse 1.5s infinite; }
         #log { font-size: 12px; color: #bdc3c7; height: 70px; overflow-y: scroll; margin-top: 15px; background: rgba(0,0,0,0.3); padding: 8px; border-radius: 5px; border: 1px solid rgba(255,255,255,0.1); }
         @keyframes pulse { 0% { opacity: 0.8; } 50% { opacity: 1; } 100% { opacity: 0.8; } }
@@ -60,6 +62,7 @@
         <div style="margin: 15px 0;">
             <button id="draw-btn" onclick="drawCard()" disabled>Nosta edelliseltä</button>
             <button id="end-bonus-btn" class="hidden" onclick="endBonusTurn()">Lopeta jatkovuoro</button>
+            <button id="new-game-btn" class="hidden" onclick="requestNewGame()">Haluan uuden pelin! 🔄</button>
         </div>
         <h4>OMAT KORTTIASI</h4>
         <div id="my-cards"></div>
@@ -140,10 +143,23 @@ socket.on('gameState', (data) => {
 });
 function drawCard() { socket.emit('drawCard', { roomCode: currentRoom }); }
 function endBonusTurn() { socket.emit('endBonusTurn', { roomCode: currentRoom }); }
+function requestNewGame() {
+    document.getElementById('new-game-btn').disabled = true;
+    document.getElementById('new-game-btn').innerText = "Odotetaan kaveria... ⏳";
+    socket.emit('requestNewGame', { roomCode: currentRoom });
+}
+socket.on('gameOver', () => {
+    document.getElementById('new-game-btn').classList.remove('hidden');
+    document.getElementById('new-game-btn').disabled = false;
+    document.getElementById('new-game-btn').innerText = "Haluan uuden pelin! 🔄";
+    document.getElementById('turn-info').innerHTML = `🏁 <b>Peli päättyi!</b>`;
+});
+socket.on('resetUI', () => {
+    document.getElementById('new-game-btn').classList.add('hidden');
+});
 socket.on('logMessage', (msg) => {
     const log = document.getElementById('log'); log.innerHTML += `<div>${msg}</div>`; log.scrollTop = log.scrollHeight;
 });
-socket.on('gameOver', (msg) => { alert("Peli päättyi! Kiitos pelistä."); });
 socket.on('errorMsg', (msg) => alert(msg));
 </script>
 </body>

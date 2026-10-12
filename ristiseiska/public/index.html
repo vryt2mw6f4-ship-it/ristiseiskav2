@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Etä-Ristiseiska</title>
-    <script src="/socket.io/socket.io.js"></script>
+    <script src="https://socket.io"></script>
     <style>
         body { font-family: sans-serif; background: #1a4314; color: white; text-align: center; margin: 0; padding: 10px; }
         .setup, .game-container { max-width: 600px; margin: auto; background: rgba(0,0,0,0.5); padding: 20px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
@@ -97,7 +97,7 @@
     </div>
 
     <script>
-        const socket = io();
+        const socket = io(window.location.origin);
         let currentRoom = "";
 
         const suitSymbols = { 'C': '♣', 'D': '♦', 'H': '♥️', 'S': '♠' };

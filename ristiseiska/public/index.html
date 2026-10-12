@@ -66,6 +66,7 @@
         <div id="log"></div>
     </div>
 <script>
+const socket = io();
 let currentRoom = "";
 const suitSymbols = { 'C': '♣', 'D': '♦', 'H': '♥️', 'S': '♠' };
 function formatCardValue(v) {
@@ -81,7 +82,6 @@ function joinGame() {
     document.getElementById('waiting-room').classList.remove('hidden');
     socket.emit('joinRoom', { roomCode, username, totalPlayers });
 }
-const socket = io();
 socket.on('roomData', ({ players, maxPlayers }) => {
     const list = document.getElementById('player-list');
     list.innerHTML = players.map(p => `<div>👤 ${p.username} liittynyt</div>`).join('');

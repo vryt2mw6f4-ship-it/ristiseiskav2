@@ -177,11 +177,31 @@ function stealCardLogic(room) {
 
     if (room.players[prevIndex].cards.length > 0) {
         let randIdx = Math.floor(Math.random() * room.players[prevIndex].cards.length);
-        let stolenCard = room.players[prevIndex].cards.splice(randIdx, 1);
+        let stolenCards = room.players[prevIndex].cards.splice(randIdx, 1);
+        let stolenCard = stolenCards[0]; // Korjattu: otetaan korttiolento ulos taulukosta
         room.players[currentIndex].cards.push(stolenCard);
-        io.to(room.code).emit('logMessage', `${room.players[currentIndex].username} ryösti kortin pelaajalta ${room.players[prevIndex].username}`);
+        io.to(room.code).emit('logMessage', `🃏 ${room.players[currentIndex].username} ei voinut pelata ja ryösti kortin pelaajalta ${room.players[prevIndex].username}`);
+    } else {
+        io.to(room.code).emit('logMessage', `🃏 ${room.players[currentIndex].username} ei voinut pelata, mutta kenelläkään ei ole kortteja ryöstettäväksi!`);
     }
-    checkWinAndNextTurn(room.code);
+
+    // Pakotetaan vuoronvaihto heti noston jälkeen eteenpäin seuraavalle, jolla on kortteja
+    let nextIndex = currentIndex;
+    let attempts = 0;
+    do {
+        nextIndex = (nextIndex + 1) % room.players.length;
+        attempts++;
+    } while (room.players[nextIndex].cards.length === 0 && attempts < room.players.length);
+
+    room.currentTurn = nextIndex;
+    room.hasBonusTurn = false; // Nosto nollaa mahdolliset vanhat jatkovuorot
+
+    broadcastState(room.code);
+
+    // Jos seuraava vuorossa oleva on botti, suoritetaan sen vuoro
+    if (room.players[room.currentTurn].isBot) {
+        setTimeout(() => handleBotTurn(room.code), 1200);
+    }
 }
 
 function handleBotTurn(roomCode) {
@@ -268,9 +288,3 @@ function broadcastState(roomCode) {
                 validMoves: validMoves,
                 hasBonusTurn: room.hasBonusTurn
             });
-        }
-    });
-}
-
-const PORT = process.env.PORT || 3000;
-server.listen(PORT, () => console.log(`Palvelin käynnissä portissa ${PORT}`));

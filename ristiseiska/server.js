@@ -200,14 +200,14 @@ function checkWinAndNextTurn(roomCode) {
     if (room.players[room.currentTurn].cards.length === 0 || room.players.filter(p => p.cards.length > 0).length <= 1) { io.to(roomCode).emit('gameOver'); return; }
     if (room.players[room.currentTurn].isBot) setTimeout(() => handleBotTurn(roomCode), 1200);
 }
-function broadcastState(roomCode) {
-    let room = rooms[roomCode];
-    room.players.forEach(p => {
-        if (!p.isBot) {
-            let validMoves = getValidMoves(p.cards, room.table); let jokerSlots = p.cards.some(c => c.suit === 'JOKER') ? getAllPossibleTableSlots(room.table, room.players) : [];
-            io.to(p.id).emit('gameState', { table: room.table, currentTurn: room.currentTurn, playersData: room.players.map(pl => ({ username: pl.username, cardCount: pl.cards.length })), myCards: p.cards, canPlay: validMoves.length > 0, validMoves: validMoves, hasBonusTurn: room.hasBonusTurn, jokerSlots: jokerSlots });
-        }
-    });
+function handleBotBonusTurn(roomCode) {
+    let room = rooms[roomCode]; let bot = room.players[room.currentTurn];
+    let validMoves = getValidMoves(bot.cards, room.table);
+    if (validMoves.length > 0) handleBotTurn(roomCode); 
+    else { room.hasBonusTurn = false; checkWinAndNextTurn(roomCode); }
+}
+function bestSuitSymbol(s) { 
+    if(s==='C') return '♣'; if(s==='D') return '♦'; if(s==='H') return '♥️'; return '♠'; 
 }
 const PORT = process.env.PORT || 3000;
 server.listen(PORT, () => console.log(`Palvelin käynnissä portissa ${PORT}`));

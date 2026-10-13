@@ -130,7 +130,7 @@ function handleBotBonusTurn(roomCode) { let room = rooms[roomCode]; let bot = ro
 function checkWinAndNextTurn(roomCode) {
     let room = rooms[roomCode]; let attempts = 0; do { room.currentTurn = (room.currentTurn + 1) % room.players.length; attempts++; } while (room.players[room.currentTurn].cards.length === 0 && attempts < room.players.length);
     broadcastState(roomCode); if (room.players[room.currentTurn].cards.length === 0 || room.players.filter(p => p.cards.length > 0).length <= 1) { io.to(roomCode).emit('gameOver'); return; }
-    if (room.players[room.currentTurn].isBot) setTimeout(() => handleBotTurn(room.code), 1200);
+    if (room.players[room.currentTurn].isBot) setTimeout(() => handleBotTurn(roomCode), 1200);
 }
 function broadcastState(roomCode) {
     let room = rooms[roomCode]; room.players.forEach(p => {

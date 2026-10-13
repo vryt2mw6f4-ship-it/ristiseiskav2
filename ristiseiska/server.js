@@ -269,7 +269,7 @@ function stealCardLogic(room) {
 
     if (room.players[prevIndex].cards.length >= 2 && prevIndex !== currentIndex) {
         let randIdx = Math.floor(Math.random() * room.players[prevIndex].cards.length);
-        let stolenCard = room.players[prevIndex].cards.splice(randIdx, 1)[0];
+        let stolenCard = room.players[prevIndex].cards.splice(randIdx, 1);
         room.players[currentIndex].cards.push(stolenCard);
         io.to(room.code).emit('logMessage', `🃏 ${room.players[currentIndex].username} ryösti kortin pelaajalta ${room.players[prevIndex].username}`);
     } else {
@@ -291,41 +291,32 @@ function handleBotTurn(roomCode) {
     let validMoves = getValidMoves(bot.cards, room.table);
 
     if (validMoves.length > 0) {
-        // Suositaan sulkukortteja
-        let cardToPlay = validMoves[0];
+        let cardToPlay = validMoves;
         let specialMove = validMoves.find(c => c.value === 1 || c.value === 13 || c.suit === 'JOKER');
         if (specialMove) cardToPlay = specialMove;
 
-        // JOS BOTTI PELAA JOKERIN (🧠 UUSI ITSEKÄS TAKTIIKKA)
         if (cardToPlay.suit === 'JOKER') {
             let possibleSlots = getAllPossibleTableSlots(room.table, room.players);
             if (possibleSlots.length > 0) {
-                let bestSlot = possibleSlots[0];
+                let bestSlot = possibleSlots;
                 let highestPriority = -1;
 
-                // Botti laskee mikä pöytään sopiva kortti auttaisi parhaiten sen OMAA kättä eteenpäin
                 possibleSlots.forEach(slot => {
                     let currentPriority = 0;
-                    
-                    // Katsotaan onko botilla itsellään tässä maassa kortteja odottamassa
                     let cardsInSameSuit = bot.cards.filter(c => c.suit === slot.suit);
                     if (cardsInSameSuit.length > 0) {
-                        currentPriority += cardsInSameSuit.length * 2; // Painotetaan maata jossa botilla on paljon kortteja
-                        
-                        // Jos ryöstettävä kortti veisi pinoa suoraan kohti botin kädessä olevaa isoa/pientä korttia
+                        currentPriority += cardsInSameSuit.length * 2;
                         cardsInSameSuit.forEach(myCard => {
                             if (slot.value < 7 && myCard.value < slot.value) currentPriority += 5;
                             if (slot.value > 7 && myCard.value > slot.value) currentPriority += 5;
                         });
                     }
-                    
                     if (currentPriority > highestPriority) {
                         highestPriority = currentPriority;
                         bestSlot = slot;
                     }
                 });
 
-                // Suoritetaan ryöstö
                 bot.cards = bot.cards.filter(c => !(c.suit === 'JOKER' && c.value === cardToPlay.value));
                 let targetOwner = room.players.find(p => p.cards.some(c => c.suit === bestSlot.suit && c.value === bestSlot.value));
                 
@@ -345,8 +336,21 @@ function handleBotTurn(roomCode) {
             }
         }
 
-        // Tavallinen siirto
         bot.cards = bot.cards.filter(c => !(c.suit === cardToPlay.suit && c.value === cardToPlay.value));
         room.table[cardToPlay.suit].push(cardToPlay.value); room.table[cardToPlay.suit].sort((a,b) => a-b);
         
         let valStr = cardToPlay.value === 1 ? 'A' : cardToPlay.value === 11 ? 'J' : cardToPlay.value === 12 ? 'Q' : cardToPlay.value === 13 ? 'K' : cardToPlay.value;
+        io.to(roomCode).emit('logMessage', `🤖 ${bot.username} pelasi: ${bestSuitSymbol(cardToPlay.suit)}${valStr}`);
+
+        if ((cardToPlay.value === 1 || cardToPlay.value === 13) && bot.cards.length > 0) {
+            room.hasBonusTurn = true; broadcastState(roomCode); setTimeout(() => handleBotBonusTurn(roomCode), 1200);
+        } else { room.hasBonusTurn = false; checkWinAndNextTurn(roomCode); }
+    } else { stealCardLogic(room); }
+}
+
+function bestSuitSymbol(s) {
+    if(s==='C') return '♣'; if(s==='D') return '♦'; if(s==='H') return '♥️'; return '♠';
+}
+
+function handleBotBonusTurn(roomCode) {
+    let room = rooms[roomCode]; let bot = room.players[room.currentTurn];

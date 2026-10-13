@@ -141,4 +141,73 @@ function stealCardLogic(room) {
     }
     if (room.players[prevIndex].cards.length >= 2 && prevIndex !== currentIndex) {
         let randIdx = Math.floor(Math.random() * room.players[prevIndex].cards.length); let stolenCard = room.players[prevIndex].cards.splice(randIdx, 1)[0];
+        room.players[currentIndex].cards.push(stolenCard); io.to(room.code).emit('logMessage', `🃏 ${room.players[currentIndex].username} ryösti kortin pelaajalta ${room.players[prevIndex].username}`);
+    } else { io.to(room.code).emit('logMessage', `🛡️ Kaikilla vastustajilla on vain 1 kortti! Ohitetaan nosto.`); }
+    let nextIndex = currentIndex; let attempts = 0;
+    do { nextIndex = (nextIndex + 1) % room.players.length; attempts++; } while (room.players[nextIndex].cards.length === 0 && attempts < room.players.length);
+    room.currentTurn = nextIndex; room.hasBonusTurn = false; broadcastState(room.code);
+    if (room.players[room.currentTurn].isBot) setTimeout(() => handleBotTurn(room.code), 1200);
 }
+function handleBotTurn(roomCode) {
+    let room = rooms[roomCode]; if (!room) return;
+    let bot = room.players[room.currentTurn]; if (!bot || !bot.isBot) return;
+    let validMoves = getValidMoves(bot.cards, room.table);
+    if (validMoves.length > 0) {
+        let cardToPlay = validMoves; let specialMove = validMoves.find(c => c.value === 1 || c.value === 13 || c.suit === 'JOKER'); if (specialMove) cardToPlay = specialMove;
+        if (cardToPlay.suit === 'JOKER') {
+            let possibleSlots = getAllPossibleTableSlots(room.table, room.players);
+            if (possibleSlots.length > 0) {
+                let bestSlot = possibleSlots; let highestPriority = -1;
+                possibleSlots.forEach(slot => {
+                    let currentPriority = 0; let cardsInSameSuit = bot.cards.filter(c => c.suit === slot.suit);
+                    if (cardsInSameSuit.length > 0) {
+                        currentPriority += cardsInSameSuit.length * 2;
+                        cardsInSameSuit.forEach(myCard => {
+                            if (slot.value < 7 && myCard.value < slot.value) currentPriority += 5;
+                            if (slot.value > 7 && myCard.value > slot.value) currentPriority += 5;
+                        });
+                    }
+                    if (currentPriority > highestPriority) { highestPriority = currentPriority; bestSlot = slot; }
+                });
+                bot.cards = bot.cards.filter(c => !(c.suit === 'JOKER' && c.value === cardToPlay.value));
+                let targetOwner = room.players.find(p => p.cards.some(c => c.suit === bestSlot.suit && c.value === bestSlot.value));
+                targetOwner.cards = targetOwner.cards.filter(c => !(c.suit === bestSlot.suit && c.value === bestSlot.value));
+                room.table[bestSlot.suit].push(bestSlot.value); room.table[bestSlot.suit].sort((a,b) => a-b);
+                io.to(roomCode).emit('logMessage', `Jokeri: 🤖 ${bot.username} ryösti kortin ${bestSuitSymbol(bestSlot.suit)}${formatCardValue(bestSlot.value)} pelaajalta ${targetOwner.username} edistääkseen omaa peliään!`);
+                if (targetOwner.cards.length === 0) { io.to(roomCode).emit('logMessage', `🎉 ${targetOwner.username} pääsi maaliin Jokeriryöstön ansiosta!`); }
+                if ((bestSlot.value === 1 || bestSlot.value === 13) && bot.cards.length > 0) { room.hasBonusTurn = true; broadcastState(roomCode); setTimeout(() => handleBotBonusTurn(roomCode), 1200); } 
+                else { room.hasBonusTurn = false; checkWinAndNextTurn(roomCode); }
+                return;
+            }
+        }
+        bot.cards = bot.cards.filter(c => !(c.suit === cardToPlay.suit && c.value === cardToPlay.value));
+        room.table[cardToPlay.suit].push(cardToPlay.value); room.table[cardToPlay.suit].sort((a,b) => a-b);
+        let valStr = cardToPlay.value === 1 ? 'A' : cardToPlay.value === 11 ? 'J' : cardToPlay.value === 12 ? 'Q' : cardToPlay.value === 13 ? 'K' : cardToPlay.value;
+        io.to(roomCode).emit('logMessage', `🤖 ${bot.username} pelasi: ${bestSuitSymbol(cardToPlay.suit)}${valStr}`);
+        if ((cardToPlay.value === 1 || cardToPlay.value === 13) && bot.cards.length > 0) { room.hasBonusTurn = true; broadcastState(roomCode); setTimeout(() => handleBotBonusTurn(roomCode), 1200); } 
+        else { room.hasBonusTurn = false; checkWinAndNextTurn(roomCode); }
+    } else { stealCardLogic(room); }
+}
+function bestSuitSymbol(s) { if(s==='C') return '♣'; if(s==='D') return '♦'; if(s==='H') return '♥️'; return '♠'; }
+function handleBotBonusTurn(roomCode) {
+    let room = rooms[roomCode]; let bot = room.players[room.currentTurn]; let validMoves = getValidMoves(bot.cards, room.table);
+    if (validMoves.length > 0) handleBotTurn(roomCode); else { room.hasBonusTurn = false; checkWinAndNextTurn(roomCode); }
+}
+function checkWinAndNextTurn(roomCode) {
+    let room = rooms[roomCode]; let attempts = 0;
+    do { room.currentTurn = (room.currentTurn + 1) % room.players.length; attempts++; } while (room.players[room.currentTurn].cards.length === 0 && attempts < room.players.length);
+    broadcastState(roomCode);
+    if (room.players[room.currentTurn].cards.length === 0 || room.players.filter(p => p.cards.length > 0).length <= 1) { io.to(roomCode).emit('gameOver'); return; }
+    if (room.players[room.currentTurn].isBot) setTimeout(() => handleBotTurn(room.code), 1200);
+}
+function broadcastState(roomCode) {
+    let room = rooms[roomCode];
+    room.players.forEach(p => {
+        if (!p.isBot) {
+            let validMoves = getValidMoves(p.cards, room.table); let jokerSlots = p.cards.some(c => c.suit === 'JOKER') ? getAllPossibleTableSlots(room.table, room.players) : [];
+            io.to(p.id).emit('gameState', { table: room.table, currentTurn: room.currentTurn, playersData: room.players.map(pl => ({ username: pl.username, cardCount: pl.cards.length })), myCards: p.cards, canPlay: validMoves.length > 0, validMoves: validMoves, hasBonusTurn: room.hasBonusTurn, jokerSlots: jokerSlots });
+        }
+    });
+}
+const PORT = process.env.PORT || 3000;
+server.listen(PORT, () => console.log(`Palvelin käynnissä portissa ${PORT}`));

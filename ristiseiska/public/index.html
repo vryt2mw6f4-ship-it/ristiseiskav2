@@ -17,28 +17,36 @@
         .card.playable { border-color: #00ff00; box-shadow: 0 0 12px #00ff00; animation: glow 1.5s infinite ease-in-out; }
         .card.red { color: #c0392b; }
         
-        /* PELIPÖYTÄ VAAKARIVINÄ (VIEREKKÄIN) */
+        /* PELIPÖYTÄ VAAKARIVINÄ */
         .table-grid { display: flex; justify-content: space-around; gap: 5px; margin: 15px 0; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; }
-        .suit-column { display: flex; flex-direction: column; align-items: center; gap: 6px; flex-index: 1; width: 23%; }
+        .suit-column { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 23%; }
         .suit-label { font-size: 28px; font-weight: bold; line-height: 1; margin-bottom: 2px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
         .suit-label.red { color: #e74c3c; }
         
-        /* PÖYDÄN KORTTIEN ASENTO */
-        .table-card { display: block; width: 100%; max-width: 45px; height: 55px; background: #fdfefe; color: black; border-radius: 5px; font-weight: bold; border: 2px solid #34495e; text-align: center; font-size: 15px; line-height: 51px; box-shadow: 1px 2px 4px rgba(0,0,0,0.3); box-sizing: border-box; }
+        /* PÖYDÄN KORTTIEN ASENTO JA UUSI VÄLÄHDYSEFEKTI */
+        .table-card { display: block; width: 100%; max-width: 45px; height: 55px; background: #fdfefe; color: black; border-radius: 5px; font-weight: bold; border: 2px solid #34495e; text-align: center; font-size: 15px; line-height: 51px; box-shadow: 1px 2px 4px rgba(0,0,0,0.3); box-sizing: border-box; transition: background 0.1s, transform 0.1s; }
         .table-card.red { color: #c0392b; }
         .table-card.empty { background: rgba(255,255,255,0.05); border: 2px dashed rgba(255,255,255,0.15); color: rgba(255,255,255,0.15); box-shadow: none; }
+        
+        /* VÄLÄHDYKSEN CSS-ANIMAATIO */
+        .table-card.just-played { animation: flashPlayed 1.5s cubic-bezier(0.25, 1, 0.5, 1); border-color: #f1c40f !important; z-index: 10; }
         
         button { padding: 10px 15px; font-size: 15px; margin: 3px; cursor: pointer; border-radius: 5px; border: none; background: #e67e22; color: white; font-weight: bold; }
         button:disabled { background: #7f8c8d; cursor: not-allowed; opacity: 0.5; }
         #new-game-btn { background: #2ecc71; box-shadow: 0 0 10px #2ecc71; }
         
-        /* ALAREUNAN OMAN VUORON KOROSTUS */
         .my-hand-area { background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; margin-top: 15px; border: 2px solid transparent; transition: 0.3s; }
         .my-hand-area.my-turn-active { background: rgba(46, 204, 113, 0.15); border-color: #2ecc71; box-shadow: 0 0 15px rgba(46, 204, 113, 0.3); }
         .bottom-turn-banner { display: block; padding: 6px; border-radius: 4px; font-weight: bold; font-size: 15px; margin-bottom: 8px; background: rgba(255,255,255,0.1); text-align: center; }
         .bottom-turn-banner.active { background: #f1c40f; color: black; animation: pulse 1.5s infinite; }
         
         #log { font-size: 12px; color: #bdc3c7; height: 60px; overflow-y: scroll; margin-top: 10px; background: rgba(0,0,0,0.3); padding: 5px; border-radius: 5px; }
+        
+        @keyframes flashPlayed {
+            0% { background: #f1c40f; transform: scale(1.15); box-shadow: 0 0 20px #f1c40f; color: black; }
+            15% { background: #f39c12; transform: scale(1.15); box-shadow: 0 0 20px #f39c12; color: black; }
+            100% { background: #fdfefe; transform: scale(1); box-shadow: 1px 2px 4px rgba(0,0,0,0.3); }
+        }
         @keyframes pulse { 0% { opacity: 0.9; } 50% { opacity: 1; } 100% { opacity: 0.9; } }
         @keyframes glow { 0% { box-shadow: 0 0 5px #00ff00; } 50% { box-shadow: 0 0 15px #00ff00; } 100% { box-shadow: 0 0 5px #00ff00; } }
     </style>
@@ -65,30 +73,25 @@
     <div id="game-area" class="game-container hidden">
         <div id="opponents-status" style="margin-bottom:10px; font-size:13px; display:flex; justify-content:space-around; background:rgba(0,0,0,0.2); padding:5px; border-radius:5px;"></div>
         
-        <!-- PÄIVITETTY PELIPÖYTÄ VAAKASUUNNASSA -->
         <div class="table-grid">
-            <!-- RISTI -->
             <div class="suit-column">
                 <div class="suit-label">♣</div>
                 <div id="grid-C-low" class="table-card empty">-</div>
                 <div id="grid-C-seven" class="table-card empty">-</div>
                 <div id="grid-C-high" class="table-card empty">-</div>
             </div>
-            <!-- RUUTU -->
             <div class="suit-column">
                 <div class="suit-label red">♦</div>
                 <div id="grid-D-low" class="table-card empty red">-</div>
                 <div id="grid-D-seven" class="table-card empty red">-</div>
                 <div id="grid-D-high" class="table-card empty red">-</div>
             </div>
-            <!-- HERTTU -->
             <div class="suit-column">
                 <div class="suit-label red">♥️</div>
                 <div id="grid-H-low" class="table-card empty red">-</div>
                 <div id="grid-H-seven" class="table-card empty red">-</div>
                 <div id="grid-H-high" class="table-card empty red">-</div>
             </div>
-            <!-- PATA -->
             <div class="suit-column">
                 <div class="suit-label">♠</div>
                 <div id="grid-S-low" class="table-card empty">-</div>
@@ -111,6 +114,7 @@
 <script>
 const socket = io();
 let currentRoom = "";
+let previousTableState = null; // Tähän muistetaan edellinen pöytätilanne välähdyksiä varten
 const suitSymbols = { 'C': '♣', 'D': '♦', 'H': '♥️', 'S': '♠' };
 const suitOrder = { 'C': 0, 'D': 1, 'H': 2, 'S': 3 };
 function formatCardValue(v) {
@@ -135,7 +139,7 @@ socket.on('gameState', (data) => {
     document.getElementById('waiting-room').classList.add('hidden');
     document.getElementById('game-area').classList.remove('hidden');
     
-    // --- LASKETAAN JA SIVUTETAAN KORTIT PINOHIN VAAKASUUNNASSA ---
+    // --- PÄIVITETÄÄN PÖYTÄ JA LAUKAISTAAN VÄLÄHDYSET ---
     for (let suit in data.table) {
         let suitPile = data.table[suit];
         let isRed = (suit === 'D' || suit === 'H');
@@ -147,34 +151,45 @@ socket.on('gameState', (data) => {
         let topLow = lowCards.length > 0 ? Math.min(...lowCards) : null;
         let topHigh = highCards.length > 0 ? Math.max(...highCards) : null;
 
-        // Etsitään ruudut id-tunnuksilla
         let lowEl = document.getElementById(`grid-${suit}-low`);
         let sevenEl = document.getElementById(`grid-${suit}-seven`);
         let highEl = document.getElementById(`grid-${suit}-high`);
 
-        // 1. Ylempi kortti (A-6)
-        if (topLow !== null) {
-            lowEl.className = `table-card ${isRed ? 'red' : ''}`;
-            lowEl.innerText = formatCardValue(topLow);
-        } else {
-            lowEl.className = "table-card empty"; lowEl.innerText = "-";
+        // Apufunktio joka päivittää tekstin ja laukaisee animaation jos kortti muuttui
+        function updateAndAnimate(el, newValue, cacheKey) {
+            let oldValue = previousTableState ? previousTableState[suit][cacheKey] : null;
+            
+            if (newValue !== null) {
+                el.innerText = formatCardValue(newValue);
+                el.className = `table-card ${isRed ? 'red' : ''}`;
+                
+                // JOS KORTTI ON UUSI, LISÄTÄÄN VÄLÄHDYSLUOKKA
+                if (oldValue !== newValue && previousTableState !== null) {
+                    el.classList.remove('just-played');
+                    void el.offsetWidth; // Pakotetaan selain resetoimaan animaatio lennosta
+                    el.classList.add('just-played');
+                }
+            } else {
+                el.className = "table-card empty"; el.innerText = "-";
+            }
         }
 
-        // 2. Keskimmäinen (Seiska)
-        if (hasSeven) {
-            sevenEl.className = `table-card ${isRed ? 'red' : ''}`;
-            sevenEl.innerText = "7";
-        } else {
-            sevenEl.className = "table-card empty"; sevenEl.innerText = "-";
-        }
+        updateAndAnimate(lowEl, topLow, 'topLow');
+        updateAndAnimate(sevenEl, hasSeven ? 7 : null, 'hasSeven');
+        updateAndAnimate(highEl, topHigh, 'topHigh');
+    }
 
-        // 3. Alempi kortti (8-K)
-        if (topHigh !== null) {
-            highEl.className = `table-card ${isRed ? 'red' : ''}`;
-            highEl.innerText = formatCardValue(topHigh);
-        } else {
-            highEl.className = "table-card empty"; highEl.innerText = "-";
-        }
+    // Tallennetaan nykyinen tilanne muistiin seuraavaa vuoroa varten
+    previousTableState = {};
+    for (let suit in data.table) {
+        let suitPile = data.table[suit];
+        let lowCards = suitPile.filter(v => v < 7);
+        let highCards = suitPile.filter(v => v > 7);
+        previousTableState[suit] = {
+            topLow: lowCards.length > 0 ? Math.min(...lowCards) : null,
+            hasSeven: suitPile.includes(7) ? 7 : null,
+            topHigh: highCards.length > 0 ? Math.max(...highCards) : null
+        };
     }
 
     const myUsername = document.getElementById('username').value;
@@ -201,11 +216,8 @@ socket.on('gameState', (data) => {
     }
     document.getElementById('opponents-status').innerHTML = data.playersData.map(p => `<div><b>${p.username}:</b> ${p.cardCount} kpl</div>`).join('');
     
-    // --- AUTOMAATTINEN KORTTIEN JÄRJESTELY MAITTAIN JA ARVOITTAIN ---
     let sortedCards = [...data.myCards].sort((a, b) => {
-        if (suitOrder[a.suit] !== suitOrder[b.suit]) {
-            return suitOrder[a.suit] - suitOrder[b.suit];
-        }
+        if (suitOrder[a.suit] !== suitOrder[b.suit]) return suitOrder[a.suit] - suitOrder[b.suit];
         return a.value - b.value;
     });
     
@@ -214,7 +226,6 @@ socket.on('gameState', (data) => {
         const isPlayable = data.validMoves.some(m => m.suit === card.suit && m.value === card.value);
         const cardEl = document.createElement('div');
         cardEl.className = `card ${isPlayable ? 'playable' : ''} ${(card.suit === 'D' || card.suit === 'H') ? 'red' : ''}`;
-        
         cardEl.innerHTML = `<div class="card-suit">${suitSymbols[card.suit]}</div><div class="card-val">${formatCardValue(card.value)}</div>`;
         if (isMyTurn && isPlayable) {
             cardEl.onclick = () => { socket.emit('playCard', { roomCode: currentRoom, card }); };
@@ -238,6 +249,7 @@ socket.on('gameOver', () => {
 });
 socket.on('resetUI', () => {
     document.getElementById('new-game-btn').classList.add('hidden');
+    previousTableState = null; // Nollataan muisti uutta jakoa varten
 });
 socket.on('logMessage', (msg) => {
     const log = document.getElementById('log'); log.innerHTML += `<div>${msg}</div>`; log.scrollTop = log.scrollHeight;

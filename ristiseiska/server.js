@@ -2,149 +2,74 @@ const express = require('express');
 const http = require('http');
 const { Server } = require('socket.io');
 const path = require('path');
-
 const app = express();
 const server = http.createServer(app);
-const io = new Server(server, {
-    cors: { origin: "*", methods: ["GET", "POST"], credentials: true },
-    transports: ['websocket', 'polling']
-});
-
+const io = new Server(server, { cors: { origin: "*", methods: ["GET", "POST"], credentials: true }, transports: ['websocket', 'polling'] });
 app.use(express.static(path.join(__dirname, 'public')));
-
 let rooms = {};
-
 function createDeck(useJokers) {
-    const suits = ['C', 'D', 'H', 'S'];
-    let deck = [];
-    for (let suit of suits) {
-        for (let value = 1; value <= 13; value++) {
-            deck.push({ suit, value });
-        }
-    }
-    if (useJokers) {
-        deck.push({ suit: 'JOKER', value: 1 });
-        deck.push({ suit: 'JOKER', value: 2 });
-    }
+    const suits = ['C', 'D', 'H', 'S']; let deck = [];
+    for (let suit of suits) { for (let value = 1; value <= 13; value++) { deck.push({ suit, value }); } }
+    if (useJokers) { deck.push({ suit: 'JOKER', value: 1 }); deck.push({ suit: 'JOKER', value: 2 }); }
     return deck.sort(() => Math.random() - 0.5);
 }
-
 io.on('connection', (socket) => {
     socket.on('joinRoom', ({ roomCode, username, gameMode, useJokers }) => {
-        socket.join(roomCode);
-        
-        let maxPlayers = 4;
+        socket.join(roomCode); let maxPlayers = 4;
         if (gameMode === '3_pelaajaa' || gameMode === '3_ihmistä_1_botti') maxPlayers = 3;
         if (gameMode === '2_ihmistä_2_bottia' || gameMode === '2_ihmistä_1_botti') maxPlayers = 2;
         if (gameMode === '1_ihminen_3_bottia') maxPlayers = 1;
-
         if (!rooms[roomCode]) {
-            rooms[roomCode] = {
-                code: roomCode,
-                players: [],
-                deck: [],
-                table: { C: [], D: [], H: [], S: [] },
-                currentTurn: 0,
-                gameStarted: false,
-                maxPlayers: maxPlayers,
-                gameMode: gameMode,
-                useJokers: useJokers === 'true',
-                readyForNextGame: []
-            };
+            rooms[roomCode] = { code: roomCode, players: [], deck: [], table: { C: [], D: [], H: [], S: [] }, currentTurn: 0, gameStarted: false, maxPlayers: maxPlayers, gameMode: gameMode, useJokers: useJokers === 'true', readyForNextGame: [] };
         }
-
-        let room = rooms[roomCode];
-        if (room.gameStarted) return;
-
+        let room = rooms[roomCode]; if (room.gameStarted) return;
         room.players.push({ id: socket.id, username, cards: [], isBot: false });
         io.to(roomCode).emit('roomData', { players: room.players, maxPlayers: room.maxPlayers });
-
-        if (room.players.length === room.maxPlayers) {
-            startGame(roomCode);
-        }
+        if (room.players.length === room.maxPlayers) { startGame(roomCode); }
     });
-
     socket.on('playCard', ({ roomCode, card, jokerTarget }) => {
-        let room = rooms[roomCode];
-        if (!room) return;
-        let activePlayer = room.players[room.currentTurn];
-        if (activePlayer.id !== socket.id) return;
-
+        let room = rooms[roomCode]; if (!room) return;
+        let activePlayer = room.players[room.currentTurn]; if (activePlayer.id !== socket.id) return;
         if (card.suit === 'JOKER') {
             if (!jokerTarget) return;
             activePlayer.cards = activePlayer.cards.filter(c => !(c.suit === 'JOKER' && c.value === card.value));
             let targetCardOwner = room.players.find(p => p.cards.some(c => c.suit === jokerTarget.suit && c.value === jokerTarget.value));
-            
             if (targetCardOwner) {
                 targetCardOwner.cards = targetCardOwner.cards.filter(c => !(c.suit === jokerTarget.suit && c.value === jokerTarget.value));
-                room.table[jokerTarget.suit].push(jokerTarget.value);
-                room.table[jokerTarget.suit].sort((a,b) => a-b);
+                room.table[jokerTarget.suit].push(jokerTarget.value); room.table[jokerTarget.suit].sort((a,b) => a-b);
                 io.to(roomCode).emit('logMessage', `🃏 ${activePlayer.username} pelasi JOKERIN ja ryösti kortin ${bestSuitSymbol(jokerTarget.suit)}${formatCardValue(jokerTarget.value)} pelaajalta ${targetCardOwner.username}!`);
-                if (targetCardOwner.cards.length === 0) {
-                    io.to(roomCode).emit('logMessage', `🎉 ${targetCardOwner.username} pääsi maaliin Jokeriryöstön ansiosta!`);
-                }
-            } else {
-                io.to(roomCode).emit('logMessage', `⚠️ Jokeri epäonnistui.`);
-                broadcastState(roomCode);
-                return;
-            }
-
-            if ((jokerTarget.value === 1 || jokerTarget.value === 13) && activePlayer.cards.length > 0) {
-                room.hasBonusTurn = true;
-                broadcastState(roomCode);
-            } else {
-                room.hasBonusTurn = false;
-                checkWinAndNextTurn(roomCode);
-            }
+                if (targetCardOwner.cards.length === 0) { io.to(roomCode).emit('logMessage', `🎉 ${targetCardOwner.username} pääsi maaliin Jokeriryöstön ansiosta!`); }
+            } else { io.to(roomCode).emit('logMessage', `⚠️ Jokeri epäonnistui.`); broadcastState(roomCode); return; }
+            if ((jokerTarget.value === 1 || jokerTarget.value === 13) && activePlayer.cards.length > 0) { room.hasBonusTurn = true; broadcastState(roomCode); } 
+            else { room.hasBonusTurn = false; checkWinAndNextTurn(roomCode); }
             return;
         }
-
         activePlayer.cards = activePlayer.cards.filter(c => !(c.suit === card.suit && c.value === card.value));
-        room.table[card.suit].push(card.value);
-        room.table[card.suit].sort((a,b) => a-b);
-
+        room.table[card.suit].push(card.value); room.table[card.suit].sort((a,b) => a-b);
         let valStr = card.value === 1 ? 'A' : card.value === 11 ? 'J' : card.value === 12 ? 'Q' : card.value === 13 ? 'K' : card.value;
         io.to(roomCode).emit('logMessage', `♣️ ${activePlayer.username} pelasi: ${bestSuitSymbol(card.suit)}${valStr}`);
-
-        if ((card.value === 1 || card.value === 13) && activePlayer.cards.length > 0) {
-            room.hasBonusTurn = true;
-            broadcastState(roomCode);
-        } else {
-            room.hasBonusTurn = false;
-            checkWinAndNextTurn(roomCode);
-        }
+        if ((card.value === 1 || card.value === 13) && activePlayer.cards.length > 0) { room.hasBonusTurn = true; broadcastState(roomCode); } 
+        else { room.hasBonusTurn = false; checkWinAndNextTurn(roomCode); }
     });
-
     socket.on('endBonusTurn', ({ roomCode }) => {
-        let room = rooms[roomCode];
-        if (!room || !room.hasBonusTurn) return;
+        let room = rooms[roomCode]; if (!room || !room.hasBonusTurn) return;
         if (room.players[room.currentTurn].id !== socket.id) return;
-        room.hasBonusTurn = false;
-        checkWinAndNextTurn(roomCode);
+        room.hasBonusTurn = false; checkWinAndNextTurn(roomCode);
     });
-
     socket.on('drawCard', ({ roomCode }) => {
-        let room = rooms[roomCode];
-        if (!room || room.hasBonusTurn) return;
+        let room = rooms[roomCode]; if (!room || room.hasBonusTurn) return;
         if (room.players[room.currentTurn].id !== socket.id) return;
         stealCardLogic(room);
     });
-
     socket.on('requestNewGame', ({ roomCode }) => {
-        let room = rooms[roomCode];
-        if (!room) return;
+        let room = rooms[roomCode]; if (!room) return;
         if (!room.readyForNextGame.includes(socket.id)) room.readyForNextGame.push(socket.id);
         let humanPlayers = room.players.filter(p => !p.isBot);
-        if (room.readyForNextGame.length === humanPlayers.length) {
-            room.readyForNextGame = [];
-            restartGame(roomCode);
-        }
+        if (room.readyForNextGame.length === humanPlayers.length) { room.readyForNextGame = []; restartGame(roomCode); }
     });
 });
 function startGame(roomCode) {
-    let room = rooms[roomCode];
-    room.gameStarted = true;
-
+    let room = rooms[roomCode]; room.gameStarted = true;
     if (room.gameMode === '1_ihminen_3_bottia') {
         room.players.push({ id: 'bot_1', username: 'Botti 1', cards: [], isBot: true });
         room.players.push({ id: 'bot_2', username: 'Botti 2', cards: [], isBot: true });
@@ -157,63 +82,23 @@ function startGame(roomCode) {
     } else if (room.gameMode === '2_ihmistä_1_botti') {
         room.players.push({ id: 'bot_1', username: 'Botti 1', cards: [], isBot: true });
     }
-
-    let deck = createDeck(room.useJokers);
-    let playerIndex = 0;
-    while (deck.length > 0) {
-        room.players[playerIndex % room.players.length].cards.push(deck.pop());
-        playerIndex++;
-    }
-
-    for (let i = 0; i < room.players.length; i++) {
-        if (room.players[i].cards.some(c => c.suit === 'C' && c.value === 7)) {
-            room.currentTurn = i;
-            break;
-        }
-    }
-
-    broadcastState(roomCode);
-    if (room.players[room.currentTurn].isBot) setTimeout(() => handleBotTurn(roomCode), 1200);
+    let deck = createDeck(room.useJokers); let playerIndex = 0;
+    while (deck.length > 0) { room.players[playerIndex % room.players.length].cards.push(deck.pop()); playerIndex++; }
+    for (let i = 0; i < room.players.length; i++) { if (room.players[i].cards.some(c => c.suit === 'C' && c.value === 7)) { room.currentTurn = i; break; } }
+    broadcastState(roomCode); if (room.players[room.currentTurn].isBot) setTimeout(() => handleBotTurn(roomCode), 1200);
 }
-
 function restartGame(roomCode) {
-    let room = rooms[roomCode];
-    if (!room) return;
-    room.table = { C: [], D: [], H: [], S: [] };
-    room.hasBonusTurn = false;
-    room.players.forEach(p => p.cards = []);
-
-    let deck = createDeck(room.useJokers);
-    let playerIndex = 0;
-    while (deck.length > 0) {
-        room.players[playerIndex % room.players.length].cards.push(deck.pop());
-        playerIndex++;
-    }
-
-    for (let i = 0; i < room.players.length; i++) {
-        if (room.players[i].cards.some(c => c.suit === 'C' && c.value === 7)) {
-            room.currentTurn = i;
-            break;
-        }
-    }
-
-    io.to(roomCode).emit('resetUI');
-    broadcastState(roomCode);
-    if (room.players[room.currentTurn].isBot) setTimeout(() => handleBotTurn(roomCode), 1200);
+    let room = rooms[roomCode]; if (!room) return;
+    room.table = { C: [], D: [], H: [], S: [] }; room.hasBonusTurn = false; room.players.forEach(p => p.cards = []);
+    let deck = createDeck(room.useJokers); let playerIndex = 0;
+    while (deck.length > 0) { room.players[playerIndex % room.players.length].cards.push(deck.pop()); playerIndex++; }
+    for (let i = 0; i < room.players.length; i++) { if (room.players[i].cards.some(c => c.suit === 'C' && c.value === 7)) { room.currentTurn = i; break; } }
+    io.to(roomCode).emit('resetUI'); broadcastState(roomCode); if (room.players[room.currentTurn].isBot) setTimeout(() => handleBotTurn(roomCode), 1200);
 }
-
 function getValidMoves(cards, table) {
-    let valid = [];
-    let hasClub7 = cards.some(c => c.suit === 'C' && c.value === 7);
-    if (hasClub7 && table.C.length === 0) {
-        return cards.filter(c => c.suit === 'C' && c.value === 7);
-    }
-
-    let hasJoker = cards.some(c => c.suit === 'JOKER');
-    if (cards.length === 3 && hasJoker) {
-        return cards.filter(c => c.suit === 'JOKER');
-    }
-
+    let valid = []; let hasClub7 = cards.some(c => c.suit === 'C' && c.value === 7);
+    if (hasClub7 && table.C.length === 0) { return cards.filter(c => c.suit === 'C' && c.value === 7); }
+    let hasJoker = cards.some(c => c.suit === 'JOKER'); if (cards.length === 3 && hasJoker) { return cards.filter(c => c.suit === 'JOKER'); }
     let hasNormalMoves = false;
     for (let card of cards) {
         if (card.suit === 'JOKER') continue;
@@ -224,19 +109,14 @@ function getValidMoves(cards, table) {
             if (card.value === 6) { valid.push(card); hasNormalMoves = true; }
             else if (card.value === 8 && hasSix) { valid.push(card); hasNormalMoves = true; }
             else if (hasSix && hasEight) {
-                let minVal = Math.min(...suitPile.filter(v => v <= 7));
-                let maxVal = Math.max(...suitPile.filter(v => v >= 7));
+                let minVal = Math.min(...suitPile.filter(v => v <= 7)); let maxVal = Math.max(...suitPile.filter(v => v >= 7));
                 if (card.value === minVal - 1 || card.value === maxVal + 1) { valid.push(card); hasNormalMoves = true; }
             }
         }
     }
-
-    if (!hasNormalMoves && hasJoker) {
-        valid.push(cards.find(c => c.suit === 'JOKER'));
-    }
+    if (!hasNormalMoves && hasJoker) { valid.push(cards.find(c => c.suit === 'JOKER')); }
     return valid;
 }
-
 function getAllPossibleTableSlots(table, players) {
     let slots = [];
     for (let suit of ['C', 'D', 'H', 'S']) {
@@ -244,113 +124,20 @@ function getAllPossibleTableSlots(table, players) {
         if (!pile.includes(7)) slots.push({ suit, value: 7 });
         else {
             let hasSix = pile.includes(6); let hasEight = pile.includes(8);
-            if (!hasSix) slots.push({ suit, value: 6 });
-            if (!hasEight && hasSix) slots.push({ suit, value: 8 });
+            if (!hasSix) slots.push({ suit, value: 6 }); if (!hasEight && hasSix) slots.push({ suit, value: 8 });
             if (hasSix && hasEight) {
-                let minVal = Math.min(...pile.filter(v => v <= 7));
-                let maxVal = Math.max(...pile.filter(v => v >= 7));
-                if (minVal > 1) slots.push({ suit, value: minVal - 1 });
-                if (maxVal < 13) slots.push({ suit, value: maxVal + 1 });
+                let minVal = Math.min(...pile.filter(v => v <= 7)); let maxVal = Math.max(...pile.filter(v => v >= 7));
+                if (minVal > 1) slots.push({ suit, value: minVal - 1 }); if (maxVal < 13) slots.push({ suit, value: maxVal + 1 });
             }
         }
     }
     return slots.filter(slot => players.some(p => p.cards.some(c => c.suit === slot.suit && c.value === slot.value)));
 }
-
 function stealCardLogic(room) {
-    let currentIndex = room.currentTurn;
-    let prevIndex = (currentIndex - 1 + room.players.length) % room.players.length;
-    let attemptsToFindTarget = 0;
+    let currentIndex = room.currentTurn; let prevIndex = (currentIndex - 1 + room.players.length) % room.players.length; let attemptsToFindTarget = 0;
     while (attemptsToFindTarget < room.players.length) {
         if (room.players[prevIndex].cards.length >= 2 && prevIndex !== currentIndex) break;
-        prevIndex = (prevIndex - 1 + room.players.length) % room.players.length;
-        attemptsToFindTarget++;
+        prevIndex = (prevIndex - 1 + room.players.length) % room.players.length; attemptsToFindTarget++;
     }
-
     if (room.players[prevIndex].cards.length >= 2 && prevIndex !== currentIndex) {
-        let randIdx = Math.floor(Math.random() * room.players[prevIndex].cards.length);
-        let stolenCard = room.players[prevIndex].cards.splice(randIdx, 1);
-        room.players[currentIndex].cards.push(stolenCard);
-        io.to(room.code).emit('logMessage', `🃏 ${room.players[currentIndex].username} ryösti kortin pelaajalta ${room.players[prevIndex].username}`);
-    } else {
-        io.to(room.code).emit('logMessage', `🛡️ Kaikilla vastustajilla on vain 1 kortti! Ohitetaan nosto.`);
-    }
-
-    let nextIndex = currentIndex; let attempts = 0;
-    do { nextIndex = (nextIndex + 1) % room.players.length; attempts++; } 
-    while (room.players[nextIndex].cards.length === 0 && attempts < room.players.length);
-    
-    room.currentTurn = nextIndex; room.hasBonusTurn = false;
-    broadcastState(room.code);
-    if (room.players[room.currentTurn].isBot) setTimeout(() => handleBotTurn(room.code), 1200);
-}
-
-function handleBotTurn(roomCode) {
-    let room = rooms[roomCode]; if (!room) return;
-    let bot = room.players[room.currentTurn]; if (!bot || !bot.isBot) return;
-    let validMoves = getValidMoves(bot.cards, room.table);
-
-    if (validMoves.length > 0) {
-        let cardToPlay = validMoves;
-        let specialMove = validMoves.find(c => c.value === 1 || c.value === 13 || c.suit === 'JOKER');
-        if (specialMove) cardToPlay = specialMove;
-
-        if (cardToPlay.suit === 'JOKER') {
-            let possibleSlots = getAllPossibleTableSlots(room.table, room.players);
-            if (possibleSlots.length > 0) {
-                let bestSlot = possibleSlots;
-                let highestPriority = -1;
-
-                possibleSlots.forEach(slot => {
-                    let currentPriority = 0;
-                    let cardsInSameSuit = bot.cards.filter(c => c.suit === slot.suit);
-                    if (cardsInSameSuit.length > 0) {
-                        currentPriority += cardsInSameSuit.length * 2;
-                        cardsInSameSuit.forEach(myCard => {
-                            if (slot.value < 7 && myCard.value < slot.value) currentPriority += 5;
-                            if (slot.value > 7 && myCard.value > slot.value) currentPriority += 5;
-                        });
-                    }
-                    if (currentPriority > highestPriority) {
-                        highestPriority = currentPriority;
-                        bestSlot = slot;
-                    }
-                });
-
-                bot.cards = bot.cards.filter(c => !(c.suit === 'JOKER' && c.value === cardToPlay.value));
-                let targetOwner = room.players.find(p => p.cards.some(c => c.suit === bestSlot.suit && c.value === bestSlot.value));
-                
-                targetOwner.cards = targetOwner.cards.filter(c => !(c.suit === bestSlot.suit && c.value === bestSlot.value));
-                room.table[bestSlot.suit].push(bestSlot.value); room.table[bestSlot.suit].sort((a,b) => a-b);
-                
-                io.to(roomCode).emit('logMessage', `Jokeri: 🤖 ${bot.username} ryösti kortin ${bestSuitSymbol(bestSlot.suit)}${formatCardValue(bestSlot.value)} pelaajalta ${targetOwner.username} edistääkseen omaa peliään!`);
-                
-                if (targetOwner.cards.length === 0) {
-                    io.to(roomCode).emit('logMessage', `🎉 ${targetOwner.username} pääsi maaliin Jokeriryöstön ansiosta!`);
-                }
-
-                if ((bestSlot.value === 1 || bestSlot.value === 13) && bot.cards.length > 0) {
-                    room.hasBonusTurn = true; broadcastState(roomCode); setTimeout(() => handleBotBonusTurn(roomCode), 1200);
-                } else { room.hasBonusTurn = false; checkWinAndNextTurn(roomCode); }
-                return;
-            }
-        }
-
-        bot.cards = bot.cards.filter(c => !(c.suit === cardToPlay.suit && c.value === cardToPlay.value));
-        room.table[cardToPlay.suit].push(cardToPlay.value); room.table[cardToPlay.suit].sort((a,b) => a-b);
-        
-        let valStr = cardToPlay.value === 1 ? 'A' : cardToPlay.value === 11 ? 'J' : cardToPlay.value === 12 ? 'Q' : cardToPlay.value === 13 ? 'K' : cardToPlay.value;
-        io.to(roomCode).emit('logMessage', `🤖 ${bot.username} pelasi: ${bestSuitSymbol(cardToPlay.suit)}${valStr}`);
-
-        if ((cardToPlay.value === 1 || cardToPlay.value === 13) && bot.cards.length > 0) {
-            room.hasBonusTurn = true; broadcastState(roomCode); setTimeout(() => handleBotBonusTurn(roomCode), 1200);
-        } else { room.hasBonusTurn = false; checkWinAndNextTurn(roomCode); }
-    } else { stealCardLogic(room); }
-}
-
-function bestSuitSymbol(s) {
-    if(s==='C') return '♣'; if(s==='D') return '♦'; if(s==='H') return '♥️'; return '♠';
-}
-
-function handleBotBonusTurn(roomCode) {
-    let room = rooms[roomCode]; let bot = room.players[room.currentTurn];
+        let randIdx = Math.floor(Math.random() * room.players[prevIndex].cards.length); let stolenCard = room.players[prevIndex].cards.splice(randIdx, 1)[0];

@@ -141,3 +141,4 @@ function stealCardLogic(room) {
     }
     if (room.players[prevIndex].cards.length >= 2 && prevIndex !== currentIndex) {
         let randIdx = Math.floor(Math.random() * room.players[prevIndex].cards.length); let stolenCard = room.players[prevIndex].cards.splice(randIdx, 1)[0];
+}

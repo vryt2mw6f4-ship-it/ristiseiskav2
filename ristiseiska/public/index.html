@@ -10,49 +10,46 @@
         .setup, .game-container { max-width: 500px; margin: 10px auto; background: rgba(0,0,0,0.6); padding: 15px; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); }
         .hidden { display: none; }
         
-        /* OMAT KORTTIASI PYSTYSSÄ */
-        .card { display: inline-block; width: 45px; height: 65px; margin: 3px; background: white; color: black; border-radius: 6px; font-weight: bold; cursor: pointer; border: 2px solid #ccc; text-align: center; box-sizing: border-box; font-size: 14px; }
+        .card { display: inline-block; width: 45px; height: 65px; margin: 3px; background: white; color: black; border-radius: 6px; font-weight: bold; cursor: pointer; border: 2px solid #ccc; text-align: center; box-sizing: border-box; font-size: 14px; transition: background 0.3s, transform 0.2s; }
         .card .card-suit { font-size: 18px; line-height: 1; margin-top: 5px; }
         .card .card-val { font-size: 14px; margin-top: 2px; }
         .card.playable { border-color: #00ff00; box-shadow: 0 0 12px #00ff00; animation: glow 1.5s infinite ease-in-out; }
         .card.red { color: #c0392b; }
         
-        /* PELIPÖYTÄ VAAKARIVINÄ */
-        .table-grid { display: flex; justify-content: space-around; gap: 5px; margin: 15px 0; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; transition: background 0.3s; }
-        .suit-column { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 23%; padding: 5px; border-radius: 6px; transition: all 0.3s; }
-        .suit-label { font-size: 28px; font-weight: bold; line-height: 1; margin-bottom: 2px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); transition: opacity 0.3s; }
-        .suit-label.red { color: #e74c3c; }
+        /* UUSI: SAADUN KORTIN VÄLÄHDYS KÄDESSÄ */
+        .card.just-drawn { animation: flashDrawnCard 1.5s cubic-bezier(0.25, 1, 0.5, 1); border-color: #f1c40f !important; }
         
-        /* KOKO MAAN KAATUMISEN TYYLIT */
+        .table-grid { display: flex; justify-content: space-around; gap: 5px; margin: 15px 0; background: rgba(255,255,255,0.05); padding: 10px; border-radius: 8px; }
+        .suit-column { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 23%; padding: 5px; border-radius: 6px; transition: all 0.3s; }
+        .suit-label { font-size: 28px; font-weight: bold; line-height: 1; margin-bottom: 2px; text-shadow: 0 2px 4px rgba(0,0,0,0.5); }
+        .suit-label.red { color: #e74c3c; }
         .suit-column.suit-dead { background: rgba(255, 0, 0, 0.15); opacity: 0.4; border: 1px solid rgba(255, 0, 0, 0.3); }
         
-        /* PÖYDÄN KORTTIEN ASENTO JA VÄLÄHDYSEFEKTI */
         .table-card { display: block; width: 100%; max-width: 45px; height: 55px; background: #fdfefe; color: black; border-radius: 5px; font-weight: bold; border: 2px solid #34495e; text-align: center; font-size: 15px; line-height: 51px; box-shadow: 1px 2px 4px rgba(0,0,0,0.3); box-sizing: border-box; transition: all 0.3s; position: relative; }
         .table-card.red { color: #c0392b; }
         .table-card.empty { background: rgba(255,255,255,0.05); border: 2px dashed rgba(255,255,255,0.15); color: rgba(255,255,255,0.15); box-shadow: none; }
-        
-        /* KAATUNEEN/LUKITUN PINON TYYLIT */
-        .table-card.locked { background: #566573 !important; color: #bdc3c7 !important; border-color: #2c3e50 !important; opacity: 0.6; box-shadow: none; }
+        .table-card.locked { background: #566573 !important; color: #bdc3c7 !important; border-color: #2c3e50 !important; opacity: 0.6; }
         .table-card.locked::after { content: "🔒"; font-size: 10px; position: absolute; bottom: 2px; right: 2px; line-height: 1; }
-        
         .table-card.just-played { animation: flashPlayed 1.5s cubic-bezier(0.25, 1, 0.5, 1); border-color: #f1c40f !important; z-index: 10; }
         
         button { padding: 10px 15px; font-size: 15px; margin: 3px; cursor: pointer; border-radius: 5px; border: none; background: #e67e22; color: white; font-weight: bold; }
         button:disabled { background: #7f8c8d; cursor: not-allowed; opacity: 0.5; }
         #new-game-btn { background: #2ecc71; box-shadow: 0 0 10px #2ecc71; }
         
-        .my-hand-area { background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; margin-top: 15px; border: 2px solid transparent; transition: 0.3s; }
+        .my-hand-area { background: rgba(0,0,0,0.3); padding: 10px; border-radius: 8px; margin-top: 15px; border: 2px solid transparent; transition: background 0.3s, border-color 0.3s; position: relative; }
         .my-hand-area.my-turn-active { background: rgba(46, 204, 113, 0.15); border-color: #2ecc71; box-shadow: 0 0 15px rgba(46, 204, 113, 0.3); }
+        
+        /* UUSI: PUNAINEN VÄLÄHDYS KÄDEN TAUSTAAN KUN KORTTI RYÖSTETÄÄN SINULTA */
+        .my-hand-area.hand-robbed-flash { animation: flashHandRobbed 1.2s ease-out; }
+        .robbed-alert-text { color: #ff7675; font-weight: bold; font-size: 14px; margin-bottom: 5px; display: block; text-shadow: 0 1px 3px rgba(0,0,0,0.5); }
+        
         .bottom-turn-banner { display: block; padding: 6px; border-radius: 4px; font-weight: bold; font-size: 15px; margin-bottom: 8px; background: rgba(255,255,255,0.1); text-align: center; }
         .bottom-turn-banner.active { background: #f1c40f; color: black; animation: pulse 1.5s infinite; }
-        
         #log { font-size: 12px; color: #bdc3c7; height: 60px; overflow-y: scroll; margin-top: 10px; background: rgba(0,0,0,0.3); padding: 5px; border-radius: 5px; }
         
-        @keyframes flashPlayed {
-            0% { background: #f1c40f; transform: scale(1.15); box-shadow: 0 0 20px #f1c40f; color: black; }
-            15% { background: #f39c12; transform: scale(1.15); box-shadow: 0 0 20px #f39c12; color: black; }
-            100% { transform: scale(1); }
-        }
+        @keyframes flashPlayed { 0% { background: #f1c40f; transform: scale(1.15); box-shadow: 0 0 20px #f1c40f; color: black; } 15% { background: #f39c12; transform: scale(1.15); box-shadow: 0 0 20px #f39c12; color: black; } 100% { transform: scale(1); } }
+        @keyframes flashDrawnCard { 0% { background: #f1c40f; transform: scale(1.1); box-shadow: 0 0 15px #f1c40f; color: black; } 30% { background: #f1c40f; transform: scale(1.1); color: black; } 100% { background: white; transform: scale(1); } }
+        @keyframes flashHandRobbed { 0% { background: rgba(231, 76, 60, 0.4); border-color: #e74c3c; box-shadow: 0 0 15px rgba(231, 76, 60, 0.5); } 100% { } }
         @keyframes pulse { 0% { opacity: 0.9; } 50% { opacity: 1; } 100% { opacity: 0.9; } }
         @keyframes glow { 0% { box-shadow: 0 0 5px #00ff00; } 50% { box-shadow: 0 0 15px #00ff00; } 100% { box-shadow: 0 0 5px #00ff00; } }
     </style>
@@ -78,201 +75,116 @@
     </div>
     <div id="game-area" class="game-container hidden">
         <div id="opponents-status" style="margin-bottom:10px; font-size:13px; display:flex; justify-content:space-around; background:rgba(0,0,0,0.2); padding:5px; border-radius:5px;"></div>
-        
         <div class="table-grid">
-            <!-- RISTI -->
-            <div id="col-C" class="suit-column">
-                <div class="suit-label">♣</div>
-                <div id="grid-C-low" class="table-card empty">-</div>
-                <div id="grid-C-seven" class="table-card empty">-</div>
-                <div id="grid-C-high" class="table-card empty">-</div>
-            </div>
-            <!-- RUUTU -->
-            <div id="col-D" class="suit-column">
-                <div class="suit-label red">♦</div>
-                <div id="grid-D-low" class="table-card empty red">-</div>
-                <div id="grid-D-seven" class="table-card empty red">-</div>
-                <div id="grid-D-high" class="table-card empty red">-</div>
-            </div>
-            <!-- HERTTU -->
-            <div id="col-H" class="suit-column">
-                <div class="suit-label red">♥️</div>
-                <div id="grid-H-low" class="table-card empty red">-</div>
-                <div id="grid-H-seven" class="table-card empty red">-</div>
-                <div id="grid-H-high" class="table-card empty red">-</div>
-            </div>
-            <!-- PATA -->
-            <div id="col-S" class="suit-column">
-                <div class="suit-label">♠</div>
-                <div id="grid-S-low" class="table-card empty">-</div>
-                <div id="grid-S-seven" class="table-card empty">-</div>
-                <div id="grid-S-high" class="table-card empty">-</div>
-            </div>
+            <div id="col-C" class="suit-column"><div class="suit-label">♣</div><div id="grid-C-low" class="table-card empty">-</div><div id="grid-C-seven" class="table-card empty">-</div><div id="grid-C-high" class="table-card empty">-</div></div>
+            <div id="col-D" class="suit-column"><div class="suit-label red">♦</div><div id="grid-D-low" class="table-card empty red">-</div><div id="grid-D-seven" class="table-card empty red">-</div><div id="grid-D-high" class="table-card empty red">-</div></div>
+            <div id="col-H" class="suit-column"><div class="suit-label red">♥️</div><div id="grid-H-low" class="table-card empty red">-</div><div id="grid-H-seven" class="table-card empty red">-</div><div id="grid-H-high" class="table-card empty red">-</div></div>
+            <div id="col-S" class="suit-column"><div class="suit-label">♠</div><div id="grid-S-low" class="table-card empty">-</div><div id="grid-S-seven" class="table-card empty">-</div><div id="grid-S-high" class="table-card empty">-</div></div>
         </div>
-
         <div style="margin: 10px 0;">
             <button id="draw-btn" onclick="drawCard()" disabled>Nosta edelliseltä</button>
             <button id="end-bonus-btn" class="hidden" onclick="endBonusTurn()">Lopeta jatkovuoro</button>
             <button id="new-game-btn" class="hidden" onclick="requestNewGame()">Haluan uuden pelin! 🔄</button>
         </div>
         <div id="hand-area-box" class="my-hand-area">
+            <span id="robbed-alert" class="robbed-alert-text hidden"></span>
             <span id="bottom-turn-banner" class="bottom-turn-banner">Odotetaan vuoroa...</span>
             <div id="my-cards"></div>
         </div>
         <div id="log"></div>
     </div>
 <script>
-const socket = io();
-let currentRoom = "";
-let previousTableState = null;
-const suitSymbols = { 'C': '♣', 'D': '♦', 'H': '♥️', 'S': '♠' };
-const suitOrder = { 'C': 0, 'D': 1, 'H': 2, 'S': 3 };
-function formatCardValue(v) {
-    if (v === 1) return 'A'; if (v === 11) return 'J'; if (v === 12) return 'Q'; if (v === 13) return 'K'; return v;
-}
+const socket = io(); let currentRoom = ""; let previousTableState = null;
+let previousHandState = []; // Muistetaan edelliset omat kortit ryöstöjen seurantaan
+const suitSymbols = { 'C': '♣', 'D': '♦', 'H': '♥️', 'S': '♠' }; const suitOrder = { 'C': 0, 'D': 1, 'H': 2, 'S': 3 };
+function formatCardValue(v) { if (v === 1) return 'A'; if (v === 11) return 'J'; if (v === 12) return 'Q'; if (v === 13) return 'K'; return v; }
 function joinGame() {
-    const username = document.getElementById('username').value.trim();
-    const roomCode = document.getElementById('room-code').value.trim().toUpperCase();
-    const totalPlayers = document.getElementById('total-players').value;
+    const username = document.getElementById('username').value.trim(); const roomCode = document.getElementById('room-code').value.trim().toUpperCase(); const totalPlayers = document.getElementById('total-players').value;
     if(!username || !roomCode) return alert("Täytä nimi ja huonekoodi!");
-    currentRoom = roomCode;
-    document.getElementById('setup-room').classList.add('hidden');
-    document.getElementById('waiting-room').classList.remove('hidden');
+    currentRoom = roomCode; document.getElementById('setup-room').classList.add('hidden'); document.getElementById('waiting-room').classList.remove('hidden');
     socket.emit('joinRoom', { roomCode, username, totalPlayers });
 }
 socket.on('roomData', ({ players, maxPlayers }) => {
-    const list = document.getElementById('player-list');
-    list.innerHTML = players.map(p => `<div>👤 ${p.username} liittynyt</div>`).join('');
+    const list = document.getElementById('player-list'); list.innerHTML = players.map(p => `<div>👤 ${p.username} liittynyt</div>`).join('');
     list.innerHTML += `<br><b>Tilanne: ${players.length} / ${maxPlayers} pelaajaa paikalla.</b>`;
 });
 socket.on('gameState', (data) => {
-    document.getElementById('waiting-room').classList.add('hidden');
-    document.getElementById('game-area').classList.remove('hidden');
-    
+    document.getElementById('waiting-room').classList.add('hidden'); document.getElementById('game-area').classList.remove('hidden');
     for (let suit in data.table) {
-        let suitPile = data.table[suit];
-        let isRed = (suit === 'D' || suit === 'H');
-        
-        let hasSeven = suitPile.includes(7);
-        let lowCards = suitPile.filter(v => v < 7);
-        let highCards = suitPile.filter(v => v > 7);
-        
-        let topLow = lowCards.length > 0 ? Math.min(...lowCards) : null;
-        let topHigh = highCards.length > 0 ? Math.max(...highCards) : null;
-
-        let lowEl = document.getElementById(`grid-${suit}-low`);
-        let sevenEl = document.getElementById(`grid-${suit}-seven`);
-        let highEl = document.getElementById(`grid-${suit}-high`);
-        let columnEl = document.getElementById(`col-${suit}`);
-
-        // TARKISTETAAN ONKO PINOT TAI KOKO MAA LUKITTU
-        let isLowLocked = (topLow === 1);   // Ässä pelattu
-        let isHighLocked = (topHigh === 13); // Kuningas pelattu
-
-        // Jos molemmat päät ovat lukossa, koko maa on kaatunut
-        if (isLowLocked && isHighLocked) {
-            columnEl.classList.add('suit-dead');
-        } else {
-            columnEl.classList.remove('suit-dead');
-        }
-
+        let suitPile = data.table[suit]; let isRed = (suit === 'D' || suit === 'H');
+        let hasSeven = suitPile.includes(7); let lowCards = suitPile.filter(v => v < 7); let highCards = suitPile.filter(v => v > 7);
+        let topLow = lowCards.length > 0 ? Math.min(...lowCards) : null; let topHigh = highCards.length > 0 ? Math.max(...highCards) : null;
+        let lowEl = document.getElementById(`grid-${suit}-low`); let sevenEl = document.getElementById(`grid-${suit}-seven`); let highEl = document.getElementById(`grid-${suit}-high`); let columnEl = document.getElementById(`col-${suit}`);
+        let isLowLocked = (topLow === 1); let isHighLocked = (topHigh === 13);
+        if (isLowLocked && isHighLocked) columnEl.classList.add('suit-dead'); else columnEl.classList.remove('suit-dead');
         function updateAndAnimate(el, newValue, cacheKey, isLocked) {
             let oldValue = previousTableState ? previousTableState[suit][cacheKey] : null;
-            
             if (newValue !== null) {
-                el.innerText = formatCardValue(newValue);
-                // Lisätään .locked -luokka jos kyseinen pääty on saavuttanut Ässän tai Kuninkaan
-                el.className = `table-card ${isRed ? 'red' : ''} ${isLocked ? 'locked' : ''}`;
-                
-                if (oldValue !== newValue && previousTableState !== null) {
-                    el.classList.remove('just-played');
-                    void el.offsetWidth;
-                    el.classList.add('just-played');
-                }
-            } else {
-                el.className = "table-card empty"; el.innerText = "-";
-            }
+                el.innerText = formatCardValue(newValue); el.className = `table-card ${isRed ? 'red' : ''} ${isLocked ? 'locked' : ''}`;
+                if (oldValue !== newValue && previousTableState !== null) { el.classList.remove('just-played'); void el.offsetWidth; el.classList.add('just-played'); }
+            } else { el.className = "table-card empty"; el.innerText = "-"; }
         }
-
-        updateAndAnimate(lowEl, topLow, 'topLow', isLowLocked);
-        updateAndAnimate(sevenEl, hasSeven ? 7 : null, 'hasSeven', false);
-        updateAndAnimate(highEl, topHigh, 'topHigh', isHighLocked);
+        updateAndAnimate(lowEl, topLow, 'topLow', isLowLocked); updateAndAnimate(sevenEl, hasSeven ? 7 : null, 'hasSeven', false); updateAndAnimate(highEl, topHigh, 'topHigh', isHighLocked);
     }
-
     previousTableState = {};
     for (let suit in data.table) {
-        let suitPile = data.table[suit];
-        let lowCards = suitPile.filter(v => v < 7);
-        let highCards = suitPile.filter(v => v > 7);
-        previousTableState[suit] = {
-            topLow: lowCards.length > 0 ? Math.min(...lowCards) : null,
-            hasSeven: suitPile.includes(7) ? 7 : null,
-            topHigh: highCards.length > 0 ? Math.max(...highCards) : null
-        };
+        let suitPile = data.table[suit]; let lowCards = suitPile.filter(v => v < 7); let highCards = suitPile.filter(v => v > 7);
+        previousTableState[suit] = { topLow: lowCards.length > 0 ? Math.min(...lowCards) : null, hasSeven: suitPile.includes(7) ? 7 : null, topHigh: highCards.length > 0 ? Math.max(...highCards) : null };
     }
-
-    const myUsername = document.getElementById('username').value;
-    const turnUser = data.playersData[data.currentTurn].username;
-    const isMyTurn = turnUser === myUsername;
-    const drawBtn = document.getElementById('draw-btn'); const endBonusBtn = document.getElementById('end-bonus-btn');
-    const handBox = document.getElementById('hand-area-box'); const bottomBanner = document.getElementById('bottom-turn-banner');
-    
+    const myUsername = document.getElementById('username').value; const turnUser = data.playersData[data.currentTurn].username; const isMyTurn = turnUser === myUsername;
+    const drawBtn = document.getElementById('draw-btn'); const endBonusBtn = document.getElementById('end-bonus-btn'); const handBox = document.getElementById('hand-area-box'); const bottomBanner = document.getElementById('bottom-turn-banner');
     if (isMyTurn) {
-        handBox.classList.add('my-turn-active');
-        bottomBanner.classList.add('active');
-        if (data.hasBonusTurn) {
-            bottomBanner.innerHTML = `⚡ JATKOVUORO! Pelaa kortti tai lopeta.`;
-            drawBtn.disabled = true; endBonusBtn.classList.remove('hidden');
-        } else {
-            bottomBanner.innerHTML = `⭐️ SINUN VUOROSI!`;
-            drawBtn.disabled = data.canPlay; endBonusBtn.classList.add('hidden');
-        }
+        handBox.classList.add('my-turn-active'); bottomBanner.classList.add('active');
+        if (data.hasBonusTurn) { bottomBanner.innerHTML = `⚡ JATKOVUORO! Pelaa kortti tai lopeta.`; drawBtn.disabled = true; endBonusBtn.classList.remove('hidden'); } 
+        else { bottomBanner.innerHTML = `⭐️ SINUN VUOROSI!`; drawBtn.disabled = data.canPlay; endBonusBtn.classList.add('hidden'); }
     } else {
-        handBox.classList.remove('my-turn-active');
-        bottomBanner.classList.remove('active');
-        bottomBanner.innerHTML = data.hasBonusTurn ? `Vuorossa: ${turnUser} (Jatkovuoro...)` : `Vuorossa: ${turnUser}`;
+        handBox.classList.remove('my-turn-active'); bottomBanner.classList.remove('active'); bottomBanner.innerHTML = data.hasBonusTurn ? `Vuorossa: ${turnUser} (Jatkovuoro...)` : `Vuorossa: ${turnUser}`;
         drawBtn.disabled = true; endBonusBtn.classList.add('hidden');
     }
     document.getElementById('opponents-status').innerHTML = data.playersData.map(p => `<div><b>${p.username}:</b> ${p.cardCount} kpl</div>`).join('');
     
-    let sortedCards = [...data.myCards].sort((a, b) => {
-        if (suitOrder[a.suit] !== suitOrder[b.suit]) return suitOrder[a.suit] - suitOrder[b.suit];
-        return a.value - b.value;
-    });
-    
+    // --- LASKETAAN KÄDEN MUUTOKSET (MITÄ NOSTETTIIN TAI MITÄ MENETETTIIN) ---
+    let drawnCards = []; let lostCard = null;
+    if (previousHandState.length > 0) {
+        // Katsotaan onko tullut uusia kortteja
+        data.myCards.forEach(c => {
+            if (!previousHandState.some(old => old.suit === c.suit && old.value === c.value)) { drawnCards.push(c); }
+        });
+        // Katsotaan katosiko jokin kortti ilman että itse pelattiin sitä (eli joku muu ryösti meiltä)
+        if (!isMyTurn) {
+            previousHandState.forEach(old => {
+                if (!data.myCards.some(curr => curr.suit === old.suit && curr.value === old.value)) { lostCard = old; }
+            });
+        }
+    }
+    previousHandState = [...data.myCards];
+
+    // Laukaisujen visuaaliset efektit hälytyksiin
+    const alertText = document.getElementById('robbed-alert');
+    if (lostCard) {
+        alertText.innerText = `🟥 ${suitSymbols[lostCard.suit]}${formatCardValue(lostCard.value)} vietiin kädestäsi!`;
+        alertText.classList.remove('hidden'); handBox.classList.remove('hand-robbed-flash'); void handBox.offsetWidth; handBox.classList.add('hand-robbed-flash');
+        setTimeout(() => { alertText.classList.add('hidden'); }, 3000);
+    }
+
+    let sortedCards = [...data.myCards].sort((a, b) => { if (suitOrder[a.suit] !== suitOrder[b.suit]) return suitOrder[a.suit] - suitOrder[b.suit]; return a.value - b.value; });
     const cardsDiv = document.getElementById('my-cards'); cardsDiv.innerHTML = "";
     sortedCards.forEach(card => {
-        const isPlayable = data.validMoves.some(m => m.suit === card.suit && m.value === card.value);
-        const cardEl = document.createElement('div');
-        cardEl.className = `card ${isPlayable ? 'playable' : ''} ${(card.suit === 'D' || card.suit === 'H') ? 'red' : ''}`;
+        const isPlayable = data.validMoves.some(m => m.suit === card.suit && m.value === card.value); const cardEl = document.createElement('div');
+        let isJustDrawn = drawnCards.some(d => d.suit === card.suit && d.value === card.value);
+        
+        cardEl.className = `card ${isPlayable ? 'playable' : ''} ${(card.suit === 'D' || card.suit === 'H') ? 'red' : ''} ${isJustDrawn ? 'just-drawn' : ''}`;
         cardEl.innerHTML = `<div class="card-suit">${suitSymbols[card.suit]}</div><div class="card-val">${formatCardValue(card.value)}</div>`;
-        if (isMyTurn && isPlayable) {
-            cardEl.onclick = () => { socket.emit('playCard', { roomCode: currentRoom, card }); };
-        }
+        if (isMyTurn && isPlayable) { cardEl.onclick = () => { socket.emit('playCard', { roomCode: currentRoom, card }); }; }
         cardsDiv.appendChild(cardEl);
     });
 });
 function drawCard() { socket.emit('drawCard', { roomCode: currentRoom }); }
 function endBonusTurn() { socket.emit('endBonusTurn', { roomCode: currentRoom }); }
-function requestNewGame() {
-    document.getElementById('new-game-btn').disabled = true;
-    document.getElementById('new-game-btn').innerText = "Odotetaan kaveria... ⏳";
-    socket.emit('requestNewGame', { roomCode: currentRoom });
-}
-socket.on('gameOver', () => {
-    document.getElementById('new-game-btn').classList.remove('hidden');
-    document.getElementById('new-game-btn').disabled = false;
-    document.getElementById('new-game-btn').innerText = "Haluan uuden pelin! 🔄";
-    document.getElementById('bottom-turn-banner').innerHTML = `🏁 <b>Peli päättyi!</b>`;
-    document.getElementById('bottom-turn-banner').classList.remove('active');
-});
-socket.on('resetUI', () => {
-    document.getElementById('new-game-btn').classList.add('hidden');
-    previousTableState = null;
-});
-socket.on('logMessage', (msg) => {
-    const log = document.getElementById('log'); log.innerHTML += `<div>${msg}</div>`; log.scrollTop = log.scrollHeight;
-});
+function requestNewGame() { document.getElementById('new-game-btn').disabled = true; document.getElementById('new-game-btn').innerText = "Odotetaan kaveria... ⏳"; socket.emit('requestNewGame', { roomCode: currentRoom }); }
+socket.on('gameOver', () => { document.getElementById('new-game-btn').classList.remove('hidden'); document.getElementById('new-game-btn').disabled = false; document.getElementById('new-game-btn').innerText = "Haluan uuden pelin! 🔄"; document.getElementById('bottom-turn-banner').innerHTML = `🏁 <b>Peli päättyi!</b>`; document.getElementById('bottom-turn-banner').classList.remove('active'); document.getElementById('robbed-alert').classList.add('hidden'); });
+socket.on('resetUI', () => { document.getElementById('new-game-btn').classList.add('hidden'); previousTableState = null; previousHandState = []; document.getElementById('robbed-alert').classList.add('hidden'); });
+socket.on('logMessage', (msg) => { const log = document.getElementById('log'); log.innerHTML += `<div>${msg}</div>`; log.scrollTop = log.scrollHeight; });
 socket.on('errorMsg', (msg) => alert(msg));
 </script>
 </body>
